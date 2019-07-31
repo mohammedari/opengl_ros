@@ -3,12 +3,13 @@
 #include <stdexcept>
 #include <sstream>
 #include <string>
+#include <vector>
 
 #include <EGL/egl.h>
-#include <GL/gl.h>
+#include <glad/glad.h>
 
 namespace cgs {
-namespace gl  {
+namespace egl  {
 
 class Exception final : public std::runtime_error
 {
@@ -27,8 +28,8 @@ static void handleError(EGLBoolean result, const std::string& message)
     if (EGL_TRUE == result)
         return;
 
-    std::stringstream ss(message);
-    ss << " ";
+    std::stringstream ss;
+    ss << message << " ";
     switch(result)
     {
     case EGL_FALSE:
@@ -114,16 +115,23 @@ public:
             eglBindAPI(EGL_OPENGL_API), 
             "Failed to bind OpenGL API.");
 
-        constexpr std::array<EGLint, 1> attributes = {
+        constexpr std::array<EGLint, 1> configAttributes = {
             EGL_NONE,
         };
         EGLConfig config;
         EGLint numConfig;
         handleError(
-            eglChooseConfig(display_.get(), attributes.data(), &config, 1, &numConfig), 
+            eglChooseConfig(display_.get(), configAttributes.data(), &config, 1, &numConfig), 
             "Failed to choose config");
 
-        context_ = eglCreateContext(display_.get(), config, EGL_NO_CONTEXT, nullptr);
+        //Specifying OpenGL Core 4.5; this should be much glad loader profile.
+        const std::array<EGLint, 7> contextAttributes = {
+            EGL_CONTEXT_MAJOR_VERSION, 4,
+            EGL_CONTEXT_MINOR_VERSION, 5,
+            EGL_CONTEXT_OPENGL_PROFILE_MASK, EGL_CONTEXT_OPENGL_CORE_PROFILE_BIT,
+            EGL_NONE,
+        };
+        context_ = eglCreateContext(display_.get(), config, EGL_NO_CONTEXT, contextAttributes.data());
         if (context_ == EGL_NO_CONTEXT) {
             handleError("Failed to create EGL context.");
         }
@@ -143,6 +151,96 @@ public:
     EGLContext get() const { return context_; }
 };
 
+} //egl
+} //cgs
+
+namespace cgs{
+namespace gl{
+
+class Exception final : public std::runtime_error
+{
+public:
+    Exception(const std::string& message) : std::runtime_error(message) {}
+};
+
+template<class T>
+class VBO
+{
+  GLuint vbo_;
+  const GLenum target_;
+  const GLenum usage_;
+  const size_t size_;
+
+public:
+  VBO(GLenum target, const std::vector<T>& data, GLenum usage = GL_STATIC_DRAW)
+    : target_(target), usage_(usage), size_(data.size())
+  {
+    glGenBuffers(1, &vbo_);
+    glBindBuffer(target_, vbo_);
+    glBufferData(target_, sizeof(T) * data.size(), data.data(), usage_);
+  }
+  ~VBO()
+  {
+    glDeleteBuffers(1, &vbo_);
+  }
+
+  void update(const std::vector<T>& data)
+  {
+    if (usage_ != GL_DYNAMIC_DRAW && usage_ != GL_DYNAMIC_READ && usage_ != GL_DYNAMIC_COPY)
+      throw Exception("GL_DYNAMIC_* flag must be specified for the buffer.");
+
+    if (data.size() != size_)
+      throw Exception("Data size mismatch.");
+
+    glBindBuffer(target_, vbo_);
+
+    auto buffer = glMapBuffer(target_, GL_WRITE_ONLY);
+    std::copy(data.begin(), data.end(), buffer);
+    glUnmapBuffer(target_);
+  }
+
+  void bind()
+  {
+    glBindBuffer(target_, vbo_);
+  }
+};
+
+class VAO
+{
+  GLuint vao_;
+
+public:
+  VAO()
+  {
+    glGenVertexArrays(1, &vao_);
+  }
+  ~VAO()
+  {
+    glDeleteVertexArrays(1, &vao_);
+  }
+
+  template<class T>
+  void mapVariable(VBO<T> vbo, GLint variable, GLint elementSize, GLenum elementType, const GLvoid* elementOffset)
+  {
+    glBindVertexArray(vao_);
+    vbo.bind();
+
+    glEnableVertexAttribArray(variable);
+    glVertexAttribPointer(
+      variable, 
+      elementSize, 
+      elementType, 
+      GL_FALSE, 
+      sizeof(T),
+      elementOffset);
+  }
+
+  void bind()
+  {
+    glBindVertexArray(vao_);
+  }
+};
+
 class Renderer
 {
 
@@ -157,13 +255,16 @@ public:
     }
 };
 
-} //namespace cgs
+} //namespace gl
 } //namespace cgs
 
 int main()
 {
-    auto display = cgs::gl::Display();
-    auto context = cgs::gl::Context(display);
+    auto display = cgs::egl::Display();
+    auto context = cgs::egl::Context(display);
+
+    if(!gladLoadGLLoader(reinterpret_cast<GLADloadproc>(eglGetProcAddress)))
+        std::runtime_error("Failed to load OpenGL.");
 
     std::cout
         << "GL_VENDOR : "                  << glGetString(GL_VENDOR)                   << std::endl
@@ -171,6 +272,16 @@ int main()
         << "GL_VERSION : "                 << glGetString(GL_VERSION)                  << std::endl
         << "GL_SHADER_LANGUAGE_VERSION : " << glGetString(GL_SHADING_LANGUAGE_VERSION) << std::endl
         << std::endl;
+
+    //VBO<Vertex> vertex(...);
+    //VBO<ushort> index(...);
+
+    //VAO vao;
+    //vao.mapVariable(vertex, position, 3, GL_FLOAT, offsetof(Vertex, position));
+    //vao.mapVariable(vertex, uv      , 2, GL_FLOAT, offsetof(Vertex, uv));
+    //
+    //vao.bind();
+    //レンダリング
 
     return 0;
 }
