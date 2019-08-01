@@ -1,4 +1,5 @@
 #include <array>
+#include <fstream>
 #include <iostream>
 #include <stdexcept>
 #include <sstream>
@@ -177,18 +178,17 @@ template<class T>
 class VertexBuffer
 {
     GLuint vbo_;
-    const GLenum target_;
-    const GLenum usage_;
     const size_t size_;
+    const GLenum usage_;
 
 public:
     template<class CONTAINER>
-    VertexBuffer(GLenum target, const CONTAINER& data, GLenum usage = GL_STATIC_DRAW)
-        : target_(target), usage_(usage), size_(data.size())
+    VertexBuffer(const CONTAINER& data, GLenum usage = GL_STATIC_DRAW)
+        : size_(data.size()), usage_(usage) 
     {
         glGenBuffers(1, &vbo_);
-        glBindBuffer(target_, vbo_);
-        glBufferData(target_, sizeof(T) * data.size(), data.data(), usage_);
+        glBindBuffer(GL_ARRAY_BUFFER, vbo_);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(T) * data.size(), data.data(), usage_);
     }
     ~VertexBuffer()
     {
@@ -203,17 +203,17 @@ public:
         if (data.size() != size_)
             throw Exception("Data size mismatch.");
 
-        glBindBuffer(target_, vbo_);
+        glBindBuffer(GL_ARRAY_BUFFER, vbo_);
 
-        auto buffer = glMapBuffer(target_, GL_WRITE_ONLY);
+        auto buffer = glMapBuffer(GL_ARRAY_BUFFER, GL_WRITE_ONLY);
         std::copy(data.begin(), data.end(), buffer);
-        glUnmapBuffer(target_);
+        glUnmapBuffer(GL_ARRAY_BUFFER);
     }
 
     GLuint get() const { return vbo_; }
-    void bind()
+    void bind() const
     {
-        glBindBuffer(target_, vbo_);
+        glBindBuffer(GL_ARRAY_BUFFER, vbo_);
     }
 
     VertexBuffer(const VertexBuffer&) = delete;
@@ -237,7 +237,7 @@ public:
     }
   
     template<class T>
-    void mapVariable(VertexBuffer<T> vbo, GLint variable, GLint elementSize, GLenum elementType, const GLvoid* elementOffset)
+    void mapVariable(const VertexBuffer<T>& vbo, GLint variable, GLint elementSize, GLenum elementType, const GLvoid* elementOffset)
     {
         glBindVertexArray(vao_);
         vbo.bind();
@@ -253,7 +253,7 @@ public:
     }
   
     GLuint get() const { return vao_; }
-    void bind()
+    void bind() const
     {
         glBindVertexArray(vao_);
     }
@@ -269,8 +269,25 @@ class Shader
     GLuint shader_;
 
 public:
-    Shader(GLenum type, const std::string& source)
+    Shader(GLenum type, const std::string& filename)
     {
+        //reading source code from the file
+        std::string source;
+        {
+            std::ifstream ifs(filename);
+            if(ifs.fail())
+            {
+                std::stringstream ss;
+                ss << "Failed to open \"" << filename << "\"";
+                throw Exception(ss.str());
+            }
+
+            std::copy(
+                std::istreambuf_iterator<char>(ifs),
+                std::istreambuf_iterator<char>(),
+                std::back_inserter(source));
+        }
+
         shader_ = glCreateShader(type);
 
         if (!shader_)
@@ -284,7 +301,7 @@ public:
         glGetShaderiv(shader_, GL_COMPILE_STATUS, &success);
         if (success == GL_FALSE)
         {
-            std::array<GLchar, 256> log;
+            std::array<GLchar, 1024> log;
             glGetShaderInfoLog(shader_, log.size(), nullptr, log.data());
             glDeleteShader(shader_);
 
@@ -309,10 +326,28 @@ public:
     template<class CONTAINER>
     explicit Program(const CONTAINER& shaders)
     {
-        glCreateProgram();
+        program_ = glCreateProgram();
 
         for (const auto& shader : shaders)
             glAttachShader(program_, shader.get());
+
+        glLinkProgram(program_);
+
+        for (const auto& shader : shaders)
+            glDetachShader(program_, shader.get());
+
+        GLint success;
+        glGetProgramiv(program_, GL_LINK_STATUS, &success);
+        if (success == GL_FALSE)
+        {
+            std::array<GLchar, 1024> log;
+            glGetProgramInfoLog(program_, log.size(), nullptr, log.data());
+            glDeleteProgram(program_);
+
+            std::stringstream ss;
+            ss << "Failed to link program. " << log.data();
+            throw Exception(ss.str());
+        }
     }
     ~Program()
     {
@@ -344,10 +379,17 @@ public:
 } //namespace gl
 } //namespace cgs
 
+struct Vertex
+{
+    float x, y, z;
+};
+
 int main()
 {
-    auto display = cgs::egl::Display();
-    auto context = cgs::egl::Context(display);
+    //Context
+
+    cgs::egl::Display display;
+    cgs::egl::Context context(display);
 
     if(!gladLoadGLLoader(reinterpret_cast<GLADloadproc>(eglGetProcAddress)))
         std::runtime_error("Failed to load OpenGL.");
@@ -356,18 +398,30 @@ int main()
         << "GL_VENDOR : "                  << glGetString(GL_VENDOR)                   << std::endl
         << "GL_RENDERER : "                << glGetString(GL_RENDERER)                 << std::endl
         << "GL_VERSION : "                 << glGetString(GL_VERSION)                  << std::endl
-        << "GL_SHADER_LANGUAGE_VERSION : " << glGetString(GL_SHADING_LANGUAGE_VERSION) << std::endl
-        << std::endl;
+        << "GL_SHADER_LANGUAGE_VERSION : " << glGetString(GL_SHADING_LANGUAGE_VERSION) << std::endl;
 
-    //VertexBuffer<Vertex> vertex(...);
-    //VertexBuffer<ushort> index(...);
+    //Shader
 
-    //VertexArray vao;
-    //vao.mapVariable(vertex, position, 3, GL_FLOAT, offsetof(Vertex, position));
-    //vao.mapVariable(vertex, uv      , 2, GL_FLOAT, offsetof(Vertex, uv));
+    std::array<cgs::gl::Shader, 1> shaders = {
+        cgs::gl::Shader(GL_VERTEX_SHADER, "shader/vs_null.glsl"),
+    };
+    cgs::gl::Program program(shaders);
+
+    //Vertex
+
+    std::array<Vertex, 3> verticies = {
+        Vertex{0, 0, 0}, 
+        Vertex{0.3f, 0.3f, 0.3f}, 
+        Vertex{0.5f, 0.5f, 0.5f}
+    };
+    cgs::gl::VertexBuffer<Vertex> vbo(verticies);
+
+    cgs::gl::VertexArray vao;
+    vao.mapVariable(vbo, glGetAttribLocation(program.get(), "position"), 3, GL_FLOAT, 0);
+
     //
-    //vao.bind();
-    //レンダリング
+
+    std::cout << "done." << std::endl;
 
     return 0;
 }
