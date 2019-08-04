@@ -8,6 +8,7 @@
 
 #include <EGL/egl.h>
 #include <glad/glad.h>
+#include <opencv2/opencv.hpp>
 
 namespace cgs {
 namespace egl  {
@@ -179,16 +180,15 @@ class VertexBuffer
 {
     GLuint vbo_;
     const size_t size_;
-    const GLenum usage_;
 
 public:
     template<class CONTAINER>
-    VertexBuffer(const CONTAINER& data, GLenum usage = GL_STATIC_DRAW)
-        : size_(data.size()), usage_(usage) 
+    VertexBuffer(const CONTAINER& data, GLenum usage)
+        : size_(data.size()) 
     {
         glGenBuffers(1, &vbo_);
         glBindBuffer(GL_ARRAY_BUFFER, vbo_);
-        glBufferData(GL_ARRAY_BUFFER, sizeof(T) * data.size(), data.data(), usage_);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(T) * data.size(), data.data(), usage);
     }
     ~VertexBuffer()
     {
@@ -197,9 +197,6 @@ public:
 
     void update(const std::vector<T>& data)
     {
-        if (usage_ != GL_DYNAMIC_DRAW && usage_ != GL_DYNAMIC_READ && usage_ != GL_DYNAMIC_COPY)
-            throw Exception("GL_DYNAMIC_* flag must be specified for the buffer.");
-
         if (data.size() != size_)
             throw Exception("Data size mismatch.");
 
@@ -355,6 +352,7 @@ public:
     }
 
     GLuint get() const { return program_; }
+    void use() const { glUseProgram(program_); }
 
     Program(const Program&) = delete;
     Program& operator=(const Program&) = delete;
@@ -362,17 +360,179 @@ public:
     Program& operator=(Program&&) = default;
 };
 
-class Renderer
+class TextureBuffer
 {
+    GLuint tbo_;
+    GLuint texture_;
+    int width_, height_, channel_;
 
 public:
-    Renderer()
+    TextureBuffer(int width, int height, int channel, GLenum format, GLenum usage) :
+        width_(width), 
+        height_(height),
+        channel_(channel)
     {
+        glGenBuffers(1, &tbo_);
+        glBindBuffer(GL_TEXTURE_BUFFER, tbo_);
+        glBufferData(GL_TEXTURE_BUFFER, width_ * height_ * channel_, nullptr, usage);
 
+        glGenTextures(1, &texture_);
+        glBindTexture(GL_TEXTURE_BUFFER, texture_);
+        glTexBuffer(texture_, format, tbo_);
     }
-    ~Renderer()
-    {
 
+    void write(const void* data)
+    {
+        glBindBuffer(GL_TEXTURE_BUFFER, tbo_);
+
+        auto buffer = glMapBuffer(GL_TEXTURE_BUFFER, GL_WRITE_ONLY);
+        memcpy(buffer, data, width_ * height_ * channel_);
+        glUnmapBuffer(GL_TEXTURE_BUFFER);
+    }
+    void read(void* data)
+    {
+        glBindBuffer(GL_TEXTURE_BUFFER, tbo_);
+
+        const auto buffer = glMapBuffer(GL_TEXTURE_BUFFER, GL_READ_ONLY);
+        memcpy(data, buffer, width_ * height_ * channel_);
+        glUnmapBuffer(GL_TEXTURE_BUFFER);
+    }
+
+    void bind() const
+    {
+        glBindTexture(GL_TEXTURE_BUFFER, texture_);
+    }
+
+    GLuint get() const { return texture_; }
+    GLsizei width() const { return width_; }
+    GLsizei height() const { return height_; }
+};
+
+class PixelPackBuffer
+{
+    GLuint pack_; 
+
+public:
+    PixelPackBuffer(size_t size)
+    {
+        glGenBuffers(1, &pack_);
+        glBindBuffer(GL_PIXEL_PACK_BUFFER, pack_);
+        glBufferData(GL_PIXEL_PACK_BUFFER, size, nullptr, GL_STREAM_DRAW);
+        glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
+    }
+    ~PixelPackBuffer()
+    {
+        glDeleteBuffers(1, &pack_);
+    }
+
+    [[deprecated("not implemented yet")]]
+    void read(void* data)
+    {
+        //TODO 
+    }
+
+    GLuint get() const { return pack_; }
+};
+
+class PixelUnpackBuffer
+{
+    GLuint unpack_;
+
+public:
+    PixelUnpackBuffer(size_t size)
+    {
+        glGenBuffers(1, &unpack_);
+        glBindBuffer(GL_PIXEL_UNPACK_BUFFER, unpack_);
+        glBufferData(GL_PIXEL_UNPACK_BUFFER, size, nullptr, GL_STREAM_READ);
+        glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
+    }
+    ~PixelUnpackBuffer()
+    {
+        glDeleteBuffers(1, &unpack_);
+    }
+
+    [[deprecated("not implemented yet")]]
+    void write(const void* data)
+    {
+        //TODO 
+    }
+
+    GLuint get() const { return unpack_; }
+};
+
+class Texture2D
+{
+    GLuint texture_;
+    GLsizei width_;
+    GLsizei height_;
+    GLint format_;
+    GLenum type_;
+
+public:
+    Texture2D(GLint format, GLsizei width, GLsizei height, GLenum type, const void* data) : 
+        width_(width), 
+        height_(height),
+        format_(format), 
+        type_(type)
+    {
+        glGenTextures(1, &texture_);
+        glBindTexture(GL_TEXTURE_2D, texture_);
+        glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
+        glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
+        glTexImage2D(GL_TEXTURE_2D, 0, format_, width_, height_, 0, format_, type_, data);
+    }
+    ~Texture2D()
+    {
+        glDeleteTextures(1, &texture_);
+    }
+
+    void bind() const
+    {
+        glBindTexture(GL_TEXTURE_2D, texture_);
+    }
+
+    void pack(const PixelPackBuffer& buffer) 
+    {
+        glBindTexture(GL_TEXTURE_2D, texture_);
+        glBindBuffer(GL_PIXEL_PACK_BUFFER, buffer.get());
+        glGetTexImage(GL_TEXTURE_2D, 0, format_, type_, nullptr);
+        glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
+    }
+    void unpack(const PixelUnpackBuffer buffer) 
+    {
+        glBindTexture(GL_TEXTURE_2D, texture_);
+        glBindBuffer(GL_PIXEL_UNPACK_BUFFER, buffer.get());
+        glTexImage2D(GL_TEXTURE_2D, 0, format_, width_, height_, 0, format_, type_, nullptr);
+        glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
+    }
+
+    void update(const void* data)
+    {
+        glBindTexture(GL_TEXTURE_2D, texture_);
+        glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
+        glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
+        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width_, height_, format_, type_, data);
+    }
+
+    GLuint get() const { return texture_; }
+    GLsizei width() const { return width_; }
+    GLsizei height() const { return height_; }
+};
+
+class FrameBuffer
+{
+    GLuint fbo_;
+public:
+    FrameBuffer(const Texture2D& texture)
+    {
+        glGenFramebuffers(1, &fbo_);
+        glBindFramebuffer(GL_FRAMEBUFFER, fbo_);
+
+        //TODO bind texture
+    }
+    ~FrameBuffer()
+    {
+        glDeleteFramebuffers(1, &fbo_);
     }
 };
 
@@ -402,10 +562,14 @@ int main()
 
     //Shader
 
-    std::array<cgs::gl::Shader, 1> shaders = {
-        cgs::gl::Shader(GL_VERTEX_SHADER, "shader/vs_null.glsl"),
+    std::array<cgs::gl::Shader, 2> shaders = {
+        cgs::gl::Shader(GL_VERTEX_SHADER,   "shader/vs_null.glsl"),
+        cgs::gl::Shader(GL_FRAGMENT_SHADER, "shader/fs_null.glsl"),
     };
     cgs::gl::Program program(shaders);
+
+    program.use();
+    glUniform2f(glGetUniformLocation(program.get(), "resolution"), 640, 480);
 
     //Vertex
 
@@ -414,12 +578,16 @@ int main()
         Vertex{0.3f, 0.3f, 0.3f}, 
         Vertex{0.5f, 0.5f, 0.5f}
     };
-    cgs::gl::VertexBuffer<Vertex> vbo(verticies);
+    cgs::gl::VertexBuffer<Vertex> vbo(verticies, GL_STATIC_DRAW);
 
     cgs::gl::VertexArray vao;
-    vao.mapVariable(vbo, glGetAttribLocation(program.get(), "position"), 3, GL_FLOAT, 0);
+    vao.mapVariable(vbo, glGetAttribLocation(program.get(), "position"),   3, GL_FLOAT, 0);
 
-    //
+    //Texture
+
+    //Render
+
+    //SOIL_save_image("output.bmp", SOIL_SAVE_TYPE_BMP, 640, 480, 3, );
 
     std::cout << "done." << std::endl;
 
