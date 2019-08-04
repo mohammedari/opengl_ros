@@ -6,9 +6,10 @@
 #include <string>
 #include <vector>
 
+#include <opencv2/opencv.hpp>
+
 #include <EGL/egl.h>
 #include <glad/glad.h>
-#include <opencv2/opencv.hpp>
 
 namespace cgs {
 namespace egl  {
@@ -237,6 +238,7 @@ public:
     }
   
     GLuint get() const { return vao_; }
+    void bind() const { glBindVertexArray(vao_); }
 
     VertexArray(const VertexArray&) = delete;
     VertexArray& operator=(const VertexArray&) = delete;
@@ -378,6 +380,11 @@ public:
     GLuint get() const { return texture_; }
     GLsizei width() const { return width_; }
     GLsizei height() const { return height_; }
+
+    TextureBuffer(const TextureBuffer&) = delete;
+    TextureBuffer& operator=(const TextureBuffer&) = delete;
+    TextureBuffer(TextureBuffer&&) = default;
+    TextureBuffer& operator=(TextureBuffer&&) = default;
 };
 
 class Texture2D
@@ -408,10 +415,19 @@ public:
     {
         glTextureSubImage2D(texture_, 0, 0, 0, width_, height_, format, type, data);
     }
+    void read(GLenum format, GLenum type, void* data, GLsizei size)
+    {
+        glGetTextureImage(texture_, 0, format, type, size, data);
+    }
 
     GLuint get() const { return texture_; }
     GLsizei width() const { return width_; }
     GLsizei height() const { return height_; }
+
+    Texture2D(const Texture2D&) = delete;
+    Texture2D& operator=(const Texture2D&) = delete;
+    Texture2D(Texture2D&&) = default;
+    Texture2D& operator=(Texture2D&&) = default;
 };
 
 class FrameBuffer
@@ -421,12 +437,25 @@ public:
     FrameBuffer(const Texture2D& texture)
     {
         glGenFramebuffers(1, &fbo_);
-        //TODO bind texture
+        glNamedFramebufferTexture(fbo_, GL_COLOR_ATTACHMENT0, texture.get(), 0);
+
+        constexpr std::array<GLenum, 1> drawBuffers = {
+            GL_COLOR_ATTACHMENT0,
+        };
+        glNamedFramebufferDrawBuffers(fbo_, drawBuffers.size(), drawBuffers.data());
     }
     ~FrameBuffer()
     {
         glDeleteFramebuffers(1, &fbo_);
     }
+
+    GLuint get() const { return fbo_; }
+    void bind() const { glBindFramebuffer(GL_FRAMEBUFFER, fbo_); }
+
+    FrameBuffer(const FrameBuffer&) = delete;
+    FrameBuffer& operator=(const FrameBuffer&) = delete;
+    FrameBuffer(FrameBuffer&&) = default;
+    FrameBuffer& operator=(FrameBuffer&&) = default;
 };
 
 } //namespace gl
@@ -453,6 +482,19 @@ int main()
         << "GL_VERSION : "                 << glGetString(GL_VERSION)                  << std::endl
         << "GL_SHADER_LANGUAGE_VERSION : " << glGetString(GL_SHADING_LANGUAGE_VERSION) << std::endl;
 
+    glDebugMessageCallback([](
+        GLenum source, 
+        GLenum type, 
+        GLuint id, 
+        GLenum severity, 
+        GLsizei length, 
+        const GLchar* message, 
+        const void* userParam
+    ) {
+        std::cerr << message << std::endl;
+    }, nullptr);
+    glEnable(GL_DEBUG_OUTPUT);
+
     //Shader
 
     std::array<cgs::gl::Shader, 2> shaders = {
@@ -478,11 +520,30 @@ int main()
 
     //Texture
 
+    constexpr auto width = 200;
+    constexpr auto height = 100;
+
+    cgs::gl::Texture2D texture(GL_RGB, width, height);
+    cgs::gl::FrameBuffer fbo(texture);
+
     //Render
 
-    //SOIL_save_image("output.bmp", SOIL_SAVE_TYPE_BMP, 640, 480, 3, );
+    fbo.bind();
+    glViewport(0, 0, width, height);
+    glClearColor(0, 1.0f, 0, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT);
 
-    std::cout << "done." << std::endl;
+    vao.bind();
+    glDrawArrays(GL_POINTS, 0, verticies.size());
+
+    glFinish();
+
+    //Save
+
+    cv::Mat image(height, width, CV_8UC3);
+    texture.read(GL_BGR, GL_UNSIGNED_BYTE, image.data, image.rows * image.cols * image.channels());
+
+    cv::imwrite("output.png", image);
 
     return 0;
 }
