@@ -1,4 +1,4 @@
-#version 450
+#version 450 core
 in vec3 position; 
 
 void main(void)

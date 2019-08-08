@@ -187,7 +187,7 @@ public:
     VertexBuffer(const CONTAINER& data, GLenum usage)
         : size_(data.size()) 
     {
-        glGenBuffers(1, &vbo_);
+        glCreateBuffers(1, &vbo_);
         glNamedBufferData(vbo_, sizeof(T) * data.size(), data.data(), usage);
     }
     ~VertexBuffer()
@@ -221,7 +221,7 @@ class VertexArray
 public:
     VertexArray()
     {
-        glGenVertexArrays(1, &vao_);
+        glCreateVertexArrays(1, &vao_);
     }
     ~VertexArray()
     {
@@ -357,10 +357,10 @@ public:
         height_(height),
         channel_(channel)
     {
-        glGenBuffers(1, &tbo_);
+        glCreateBuffers(1, &tbo_);
         glNamedBufferData(tbo_, width_ * height_ * channel_, nullptr, usage);
 
-        glGenTextures(1, &texture_);
+        glCreateTextures(GL_TEXTURE_BUFFER, 1, &texture_);
         glTextureBuffer(texture_, format, tbo_);
     }
 
@@ -398,8 +398,8 @@ public:
         width_(width), 
         height_(height)
     {
-        glGenTextures(1, &texture_);
-        glTextureStorage2D(texture_, 0, internalFormat, width_, height_);
+        glCreateTextures(GL_TEXTURE_2D, 1, &texture_);
+        glTextureStorage2D(texture_, 1, internalFormat, width_, height_);
     }
     Texture2D(GLint internalFormat, GLsizei width, GLsizei height, GLenum format, GLenum type, const void* data) : 
         Texture2D(internalFormat, width, height)
@@ -436,7 +436,7 @@ class FrameBuffer
 public:
     FrameBuffer(const Texture2D& texture)
     {
-        glGenFramebuffers(1, &fbo_);
+        glCreateFramebuffers(1, &fbo_);
         glNamedFramebufferTexture(fbo_, GL_COLOR_ATTACHMENT0, texture.get(), 0);
 
         constexpr std::array<GLenum, 1> drawBuffers = {
@@ -491,7 +491,44 @@ int main()
         const GLchar* message, 
         const void* userParam
     ) {
-        std::cerr << message << std::endl;
+        auto const src_str = [source]() {
+            switch (source)
+            {
+            case GL_DEBUG_SOURCE_API: return "API";
+            case GL_DEBUG_SOURCE_WINDOW_SYSTEM: return "WINDOW SYSTEM";
+            case GL_DEBUG_SOURCE_SHADER_COMPILER: return "SHADER COMPILER";
+            case GL_DEBUG_SOURCE_THIRD_PARTY: return "THIRD PARTY";
+            case GL_DEBUG_SOURCE_APPLICATION: return "APPLICATION";
+            case GL_DEBUG_SOURCE_OTHER: return "OTHER";
+            }
+            return "UNKNOWN";
+        }();
+
+        auto const type_str = [type]() {
+            switch (type)
+            {
+            case GL_DEBUG_TYPE_ERROR: return "ERROR";
+            case GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR: return "DEPRECATED_BEHAVIOR";
+            case GL_DEBUG_TYPE_UNDEFINED_BEHAVIOR: return "UNDEFINED_BEHAVIOR";
+            case GL_DEBUG_TYPE_PORTABILITY: return "PORTABILITY";
+            case GL_DEBUG_TYPE_PERFORMANCE: return "PERFORMANCE";
+            case GL_DEBUG_TYPE_MARKER: return "MARKER";
+            case GL_DEBUG_TYPE_OTHER: return "OTHER";
+            }
+            return "UNKNOWN";
+        }();
+
+        auto const severity_str = [severity]() {
+            switch (severity) {
+            case GL_DEBUG_SEVERITY_NOTIFICATION: return "NOTIFICATION";
+            case GL_DEBUG_SEVERITY_LOW: return "LOW";
+            case GL_DEBUG_SEVERITY_MEDIUM: return "MEDIUM";
+            case GL_DEBUG_SEVERITY_HIGH: return "HIGH";
+            }
+            return "UNKNOWN";
+        }();
+
+        std::cerr << src_str << ", " << type_str << ", " << severity_str << ", " << id << ": " << message << std::endl;
     }, nullptr);
     glEnable(GL_DEBUG_OUTPUT);
 
@@ -507,11 +544,10 @@ int main()
     glUniform2f(glGetUniformLocation(program.get(), "resolution"), 640, 480);
 
     //Vertex
-
     std::array<Vertex, 3> verticies = {
-        Vertex{0, 0, 0}, 
-        Vertex{0.3f, 0.3f, 0.3f}, 
-        Vertex{0.5f, 0.5f, 0.5f}
+        -0.5f, -0.5f, 0.0f,
+         0.5f, -0.5f, 0.0f,
+         0.0f,  0.5f, 0.0f,
     };
     cgs::gl::VertexBuffer<Vertex> vbo(verticies, GL_STATIC_DRAW);
 
@@ -523,14 +559,14 @@ int main()
     constexpr auto width = 200;
     constexpr auto height = 100;
 
-    cgs::gl::Texture2D texture(GL_RGB, width, height);
+    cgs::gl::Texture2D texture(GL_RGB8, width, height);
     cgs::gl::FrameBuffer fbo(texture);
 
     //Render
 
     fbo.bind();
     glViewport(0, 0, width, height);
-    glClearColor(0, 1.0f, 0, 1.0f);
+    glClearColor(0.5f, 0.5f, 0.5f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT);
 
     vao.bind();

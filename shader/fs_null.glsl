@@ -1,4 +1,4 @@
-#version 450
+#version 450 core
 uniform vec2 resolution;
 
 in vec4 gl_FragCoord;
