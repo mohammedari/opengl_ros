@@ -424,10 +424,38 @@ public:
     GLsizei width() const { return width_; }
     GLsizei height() const { return height_; }
 
+    void bindToUnit(GLuint unit) const { glBindTextureUnit(unit, texture_); }
+
     Texture2D(const Texture2D&) = delete;
     Texture2D& operator=(const Texture2D&) = delete;
     Texture2D(Texture2D&&) = default;
     Texture2D& operator=(Texture2D&&) = default;
+};
+
+class Sampler final
+{
+    GLuint sampler_;
+
+public:
+    Sampler(GLint minFilter, GLint magFilter, GLint warpS, GLint warpT)
+    {
+        glCreateSamplers(1, &sampler_);
+        glSamplerParameteri(sampler_, GL_TEXTURE_MIN_FILTER, minFilter);
+        glSamplerParameteri(sampler_, GL_TEXTURE_MAG_FILTER, magFilter);
+        glSamplerParameteri(sampler_, GL_TEXTURE_WRAP_S, warpS);
+        glSamplerParameteri(sampler_, GL_TEXTURE_WRAP_T, warpT);
+    }
+    ~Sampler()
+    {
+        glDeleteSamplers(1, &sampler_);
+    }
+
+    void bindToUnit(GLuint unit) const { glBindSampler(unit, sampler_); }
+
+    Sampler(const Sampler&) = delete;
+    Sampler& operator=(const Sampler&) = delete;
+    Sampler(Sampler&&) = default;
+    Sampler& operator=(Sampler&&) = default;
 };
 
 class FrameBuffer
@@ -456,6 +484,76 @@ public:
     FrameBuffer& operator=(const FrameBuffer&) = delete;
     FrameBuffer(FrameBuffer&&) = default;
     FrameBuffer& operator=(FrameBuffer&&) = default;
+};
+
+struct DebugMessageUtil final
+{
+    static std::string source(GLenum source)
+    {
+        switch (source)
+        {
+        case GL_DEBUG_SOURCE_API:
+            return "API";
+        case GL_DEBUG_SOURCE_WINDOW_SYSTEM:
+            return "WINDOW SYSTEM";
+        case GL_DEBUG_SOURCE_SHADER_COMPILER:
+            return "SHADER COMPILER";
+        case GL_DEBUG_SOURCE_THIRD_PARTY:
+            return "THIRD PARTY";
+        case GL_DEBUG_SOURCE_APPLICATION:
+            return "APPLICATION";
+        case GL_DEBUG_SOURCE_OTHER:
+            return "OTHER";
+        }
+
+        return "UNKNOWN";
+    }
+
+    static std::string type(GLenum type)
+    {
+        switch (type)
+        {
+        case GL_DEBUG_TYPE_ERROR:
+            return "ERROR";
+        case GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR:
+            return "DEPRECATED_BEHAVIOR";
+        case GL_DEBUG_TYPE_UNDEFINED_BEHAVIOR:
+            return "UNDEFINED_BEHAVIOR";
+        case GL_DEBUG_TYPE_PORTABILITY:
+            return "PORTABILITY";
+        case GL_DEBUG_TYPE_PERFORMANCE:
+            return "PERFORMANCE";
+        case GL_DEBUG_TYPE_MARKER:
+            return "MARKER";
+        case GL_DEBUG_TYPE_OTHER:
+            return "OTHER";
+        }
+
+        return "UNKNOWN";
+    }
+
+    static std::string severity(GLenum severity)
+    {
+        switch (severity) {
+        case GL_DEBUG_SEVERITY_NOTIFICATION:
+            return "NOTIFICATION";
+        case GL_DEBUG_SEVERITY_LOW:
+            return "LOW";
+        case GL_DEBUG_SEVERITY_MEDIUM:
+            return "MEDIUM";
+        case GL_DEBUG_SEVERITY_HIGH:
+            return "HIGH";
+        }
+
+        return "UNKNOWN";
+    }
+
+    DebugMessageUtil() = delete;
+    ~DebugMessageUtil() = delete;
+    DebugMessageUtil(const DebugMessageUtil&) = delete;
+    DebugMessageUtil& operator=(const DebugMessageUtil&) = delete;
+    DebugMessageUtil(DebugMessageUtil&&) = delete;
+    DebugMessageUtil& operator=(DebugMessageUtil&&) = delete;
 };
 
 } //namespace gl
@@ -491,46 +589,17 @@ int main()
         const GLchar* message, 
         const void* userParam
     ) {
-        auto const src_str = [source]() {
-            switch (source)
-            {
-            case GL_DEBUG_SOURCE_API: return "API";
-            case GL_DEBUG_SOURCE_WINDOW_SYSTEM: return "WINDOW SYSTEM";
-            case GL_DEBUG_SOURCE_SHADER_COMPILER: return "SHADER COMPILER";
-            case GL_DEBUG_SOURCE_THIRD_PARTY: return "THIRD PARTY";
-            case GL_DEBUG_SOURCE_APPLICATION: return "APPLICATION";
-            case GL_DEBUG_SOURCE_OTHER: return "OTHER";
-            }
-            return "UNKNOWN";
-        }();
-
-        auto const type_str = [type]() {
-            switch (type)
-            {
-            case GL_DEBUG_TYPE_ERROR: return "ERROR";
-            case GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR: return "DEPRECATED_BEHAVIOR";
-            case GL_DEBUG_TYPE_UNDEFINED_BEHAVIOR: return "UNDEFINED_BEHAVIOR";
-            case GL_DEBUG_TYPE_PORTABILITY: return "PORTABILITY";
-            case GL_DEBUG_TYPE_PERFORMANCE: return "PERFORMANCE";
-            case GL_DEBUG_TYPE_MARKER: return "MARKER";
-            case GL_DEBUG_TYPE_OTHER: return "OTHER";
-            }
-            return "UNKNOWN";
-        }();
-
-        auto const severity_str = [severity]() {
-            switch (severity) {
-            case GL_DEBUG_SEVERITY_NOTIFICATION: return "NOTIFICATION";
-            case GL_DEBUG_SEVERITY_LOW: return "LOW";
-            case GL_DEBUG_SEVERITY_MEDIUM: return "MEDIUM";
-            case GL_DEBUG_SEVERITY_HIGH: return "HIGH";
-            }
-            return "UNKNOWN";
-        }();
-
-        std::cerr << src_str << ", " << type_str << ", " << severity_str << ", " << id << ": " << message << std::endl;
+        std::cerr 
+            << cgs::gl::DebugMessageUtil::source(source)     << ", " 
+            << cgs::gl::DebugMessageUtil::type(type)         << ", " 
+            << cgs::gl::DebugMessageUtil::severity(severity) << ", " 
+            << id << ": " 
+            << message << std::endl;
     }, nullptr);
     glEnable(GL_DEBUG_OUTPUT);
+
+    constexpr auto WIDTH = 200;
+    constexpr auto HEIGHT = 200;
 
     //Shader
 
@@ -541,7 +610,8 @@ int main()
     cgs::gl::Program program(shaders);
 
     program.use();
-    glUniform2f(glGetUniformLocation(program.get(), "resolution"), 640, 480);
+    glUniform2f(glGetUniformLocation(program.get(), "resolution"), WIDTH, HEIGHT);
+    glUniform1i(glGetUniformLocation(program.get(), "texture"), 0);
 
     //Vertex
     std::array<Vertex, 3> verticies = {
@@ -556,28 +626,36 @@ int main()
 
     //Texture
 
-    constexpr auto width = 200;
-    constexpr auto height = 100;
+    auto lobster = cv::imread("lobster.png");
+    cgs::gl::Texture2D textureIn(GL_RGB8, lobster.cols, lobster.rows);
+    textureIn.write(GL_BGR, GL_UNSIGNED_BYTE, lobster.data);
 
-    cgs::gl::Texture2D texture(GL_RGB8, width, height);
-    cgs::gl::FrameBuffer fbo(texture);
+    cgs::gl::Sampler sampler(GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE);
+
+    //FrameBuffer
+
+    cgs::gl::Texture2D textureOut(GL_RGB8, WIDTH, HEIGHT);
+    cgs::gl::FrameBuffer fbo(textureOut);
 
     //Render
 
     fbo.bind();
-    glViewport(0, 0, width, height);
+    glViewport(0, 0, WIDTH, HEIGHT);
     glClearColor(0.5f, 0.5f, 0.5f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT);
 
+    textureIn.bindToUnit(0);
+    sampler.bindToUnit(0);
+
     vao.bind();
-    glDrawArrays(GL_POINTS, 0, verticies.size());
+    glDrawArrays(GL_TRIANGLES, 0, verticies.size());
 
     glFinish();
 
     //Save
 
-    cv::Mat image(height, width, CV_8UC3);
-    texture.read(GL_BGR, GL_UNSIGNED_BYTE, image.data, image.rows * image.cols * image.channels());
+    cv::Mat image(HEIGHT, WIDTH, CV_8UC3);
+    textureOut.read(GL_BGR, GL_UNSIGNED_BYTE, image.data, image.rows * image.cols * image.channels());
 
     cv::imwrite("output.png", image);
 
