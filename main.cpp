@@ -195,14 +195,14 @@ public:
         glDeleteBuffers(1, &vbo_);
     }
 
-    void update(const std::vector<T>& data)
+    template<class CONTAINER>
+    void update(const CONTAINER& data)
     {
         if (data.size() != size_)
             throw Exception("Data size mismatch.");
 
         auto buffer = glMapNamedBuffer(vbo_, GL_WRITE_ONLY);
         std::copy(data.begin(), data.end(), buffer);
-        glUnmapBuffer(GL_ARRAY_BUFFER);
         glUnmapNamedBuffer(vbo_);
     }
 
@@ -212,6 +212,44 @@ public:
     VertexBuffer& operator=(const VertexBuffer&) = delete;
     VertexBuffer(VertexBuffer&&) = default;
     VertexBuffer& operator=(VertexBuffer&&) = default;
+};
+
+template<class T>
+class ElementBuffer
+{
+    GLuint ebo_;
+    const size_t size_;
+
+public:
+    template<class CONTAINER>
+    ElementBuffer(const CONTAINER& data, GLenum usage)
+        : size_(data.size()) 
+    {
+        glCreateBuffers(1, &ebo_);
+        glNamedBufferData(ebo_, sizeof(T) * data.size(), data.data(), usage);
+    }
+    ~ElementBuffer()
+    {
+        glDeleteBuffers(1, &ebo_);
+    }
+
+    template<class CONTAINER>
+    void update(const CONTAINER& data)
+    {
+        if (data.size() != size_)
+            throw Exception("Data size mismatch.");
+
+        auto buffer = glMapNamedBuffer(ebo_, GL_WRITE_ONLY);
+        std::copy(data.begin(), data.end(), buffer);
+        glUnmapNamedBuffer(ebo_);
+    }
+
+    GLuint get() const { return ebo_; }
+
+    ElementBuffer(const ElementBuffer&) = delete;
+    ElementBuffer& operator=(const ElementBuffer&) = delete;
+    ElementBuffer(ElementBuffer&&) = default;
+    ElementBuffer& operator=(ElementBuffer&&) = default;
 };
 
 class VertexArray
@@ -235,6 +273,12 @@ public:
         glVertexArrayVertexBuffer(vao_, variable, vbo.get(), 0, sizeof(T));
         glVertexArrayAttribFormat(vao_, variable, elementSize, elementType, GL_FALSE, elementOffset);
         glVertexArrayAttribBinding(vao_, variable, variable);
+    }
+
+    template<class T>
+    void mapVariable(const ElementBuffer<T>& ebo)
+    {
+        glVertexArrayElementBuffer(vao_, ebo.get());
     }
   
     GLuint get() const { return vao_; }
@@ -614,15 +658,23 @@ int main()
     glUniform1i(glGetUniformLocation(program.get(), "texture"), 0);
 
     //Vertex
-    std::array<Vertex, 3> verticies = {
+    std::array<Vertex, 4> verticies = {
         -0.5f, -0.5f, 0.0f,
          0.5f, -0.5f, 0.0f,
-         0.0f,  0.5f, 0.0f,
+         0.5f,  0.5f, 0.0f,
+        -0.5f,  0.5f, 0.0f,
     };
     cgs::gl::VertexBuffer<Vertex> vbo(verticies, GL_STATIC_DRAW);
 
+    std::array<uint, 6> indicies = {
+        0, 1, 2, 
+        2, 3, 0,
+    };
+    cgs::gl::ElementBuffer<uint> ebo(indicies, GL_STATIC_DRAW);
+
     cgs::gl::VertexArray vao;
     vao.mapVariable(vbo, glGetAttribLocation(program.get(), "position"), 3, GL_FLOAT, 0);
+    vao.mapVariable(ebo);
 
     //Texture
 
@@ -648,7 +700,7 @@ int main()
     sampler.bindToUnit(0);
 
     vao.bind();
-    glDrawArrays(GL_TRIANGLES, 0, verticies.size());
+    glDrawElements(GL_TRIANGLES, indicies.size(), GL_UNSIGNED_INT, nullptr);
 
     glFinish();
 
