@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 2.8.3)
-project(opengl_ros_lib)
+project(opengl_ros)
 
 ## Enable C++14
 set(CMAKE_CXX_STANDARD 14)
@@ -10,12 +10,15 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 ## is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS
     roscpp
+    sensor_msgs
+    image_transport
+    cv_bridge
+    opengl_ros_lib
 )
 
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
-
-add_subdirectory(thirdparty/glad)
+find_package(OpenCV REQUIRED)
 
 ## Uncomment this if the package has a setup.py. This macro ensures
 ## modules and global scripts declared therein get installed
@@ -103,9 +106,9 @@ add_subdirectory(thirdparty/glad)
 ## CATKIN_DEPENDS: catkin_packages dependent projects also need
 ## DEPENDS: system dependencies of this project that dependent projects also need
 catkin_package(
-  INCLUDE_DIRS include
-  LIBRARIES opengl_ros_lib
-#  CATKIN_DEPENDS other_catkin_pkg
+#  INCLUDE_DIRS include
+#  LIBRARIES opengl_ros
+  CATKIN_DEPENDS opengl_ros_lib
 #  DEPENDS system_lib
 )
 
@@ -115,32 +118,32 @@ catkin_package(
 
 ## Specify additional locations of header files
 ## Your package locations should be listed before other locations
-include_directories(include)
+include_directories(
+    ${catkin_INCLUDE_DIRS}
+    ${opengl_ros_lib_INCLUDE_DIRS}
+)
 
 ## Declare a C++ library
-add_library(opengl_ros_lib
-  src/simple_renderer.cpp
-)
+# add_library(opengl_ros
+#   src/${PROJECT_NAME}/opengl_ros.cpp
+# )
 
 ## Add cmake target dependencies of the library
 ## as an example, code may need to be generated before libraries
 ## either from message generation or dynamic reconfigure
-# add_dependencies(opengl_ros_lib ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+# add_dependencies(opengl_ros ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 ## Declare a C++ executable
-# add_executable(opengl_ros_lib_node src/opengl_ros_lib_node.cpp)
+add_executable(simple_renderer_node src/simple_renderer_node.cpp src/simple_renderer_nodecore.cpp)
 
 ## Add cmake target dependencies of the executable
 ## same as for the library above
-# add_dependencies(opengl_ros_lib_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+# add_dependencies(opengl_ros_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 ## Specify libraries to link a library or executable target against
-target_link_libraries(opengl_ros_lib
+target_link_libraries(simple_renderer_node
   ${catkin_LIBRARIES}
-  GL
-  EGL
-  glad
-  dl
+  ${opengl_ros_lib_LIBRARIES}
 )
 
 #############
@@ -158,7 +161,7 @@ target_link_libraries(opengl_ros_lib
 # )
 
 ## Mark executables and/or libraries for installation
-# install(TARGETS opengl_ros_lib opengl_ros_lib_node
+# install(TARGETS opengl_ros opengl_ros_node
 #   ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
 #   LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
 #   RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
@@ -183,7 +186,7 @@ target_link_libraries(opengl_ros_lib
 #############
 
 ## Add gtest based cpp test target and link libraries
-# catkin_add_gtest(${PROJECT_NAME}-test test/test_opengl_ros_lib.cpp)
+# catkin_add_gtest(${PROJECT_NAME}-test test/test_opengl_ros.cpp)
 # if(TARGET ${PROJECT_NAME}-test)
 #   target_link_libraries(${PROJECT_NAME}-test ${PROJECT_NAME})
 # endif()
