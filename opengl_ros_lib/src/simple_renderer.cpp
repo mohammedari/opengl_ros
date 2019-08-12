@@ -3,6 +3,8 @@
 
 #include <array>
 
+#include <ros/ros.h>
+
 #include "egl/egl.h"
 #include "gl/gl.h"
 
@@ -59,17 +61,19 @@ constexpr std::array<uint, 6> SimpleRenderer::Impl::INDICIES;
 SimpleRenderer::Impl::Egl::Egl() :
     display_(), context_(display_) 
 {
-    //TODO use ROS errors
     if(!gladLoadGLLoader(reinterpret_cast<GLADloadproc>(eglGetProcAddress)))
+    {
+        ROS_FATAL_STREAM("Failed to load OpenGL.");
         std::runtime_error("Failed to load OpenGL.");
+    }
 
-    //TODO use ROS output
-    std::cout
-        << "OpenGL successfully initialized." << std::endl
-        << "GL_VENDOR : "                     << glGetString(GL_VENDOR)                   << std::endl
-        << "GL_RENDERER : "                   << glGetString(GL_RENDERER)                 << std::endl
-        << "GL_VERSION : "                    << glGetString(GL_VERSION)                  << std::endl
-        << "GL_SHADER_LANGUAGE_VERSION : "    << glGetString(GL_SHADING_LANGUAGE_VERSION) << std::endl;
+    ROS_INFO_STREAM(
+        "OpenGL successfully initialized." << std::endl <<
+        "GL_VENDOR : "                     << glGetString(GL_VENDOR)                   << std::endl << 
+        "GL_RENDERER : "                   << glGetString(GL_RENDERER)                 << std::endl <<
+        "GL_VERSION : "                    << glGetString(GL_VERSION)                  << std::endl <<
+        "GL_SHADER_LANGUAGE_VERSION : "    << glGetString(GL_SHADING_LANGUAGE_VERSION) << std::endl;
+    );
 
     glDebugMessageCallback([](
         GLenum source, 
@@ -80,13 +84,29 @@ SimpleRenderer::Impl::Egl::Egl() :
         const GLchar* message, 
         const void* userParam
     ) {
-        //TODO use ROS errors
-        std::cerr 
-            << cgs::gl::DebugMessageUtil::source(source)     << ", " 
-            << cgs::gl::DebugMessageUtil::type(type)         << ", " 
-            << cgs::gl::DebugMessageUtil::severity(severity) << ", " 
-            << id << ": " 
-            << message << std::endl;
+        std::stringstream ss;
+        ss << cgs::gl::DebugMessageUtil::source(source)     << ", "
+           << cgs::gl::DebugMessageUtil::type(type)         << ", "
+           << cgs::gl::DebugMessageUtil::severity(severity) << ", "  
+           << id << ": " 
+           << message << std::endl;
+
+        switch (severity) {
+        case GL_DEBUG_SEVERITY_NOTIFICATION:
+            ROS_DEBUG_STREAM(ss.str());
+            break;
+        case GL_DEBUG_SEVERITY_LOW:
+            ROS_INFO_STREAM(ss.str());
+            break;
+        case GL_DEBUG_SEVERITY_MEDIUM:
+            ROS_WARN_STREAM(ss.str());
+            break;
+        case GL_DEBUG_SEVERITY_HIGH:
+            ROS_ERROR_STREAM(ss.str());
+            break;
+        default:
+            ROS_INFO_STREAM(ss.str());
+        }
     }, nullptr);
     glEnable(GL_DEBUG_OUTPUT);
 }
@@ -97,8 +117,8 @@ SimpleRenderer::Impl::Impl(
     const std::string& fragmentShader) : 
     width_(width), height_(height), 
     shaders_({
-        cgs::gl::Shader(GL_VERTEX_SHADER,   "shader/vs_passthrough.glsl"),
-        cgs::gl::Shader(GL_FRAGMENT_SHADER, "shader/fs_passthrough.glsl"),
+        cgs::gl::Shader(GL_VERTEX_SHADER,   vertexShader),
+        cgs::gl::Shader(GL_FRAGMENT_SHADER, fragmentShader),
     }), 
     program_(shaders_), 
     vbo_(VERTICIES, GL_STATIC_DRAW), 
@@ -122,14 +142,24 @@ void SimpleRenderer::Impl::render(cv::Mat& dest, const cv::Mat& src)
 {
     if (width_ != dest.cols || height_ != dest.rows || CV_8UC3 != dest.type())
     {
-        //TODO use ROS errors
-        throw std::runtime_error("Destination image resolution does not match.");
+        ROS_ERROR_STREAM(
+            "Destination image resolution does not match." << 
+            "width:     texture=" << width_  << ", input=" << dest.cols << 
+            "height:    texture=" << height_ << ", input=" << dest.rows << 
+            "channel:   texture=" << 3       << ", input=" << dest.channels() << 
+            "elemSize1: texture=" << 1       << ", input=" << dest.elemSize1());
+        return;
     }
 
     if (width_ != src.cols || height_ != src.rows || CV_8UC3 != dest.type())
     {
-        //TODO use ROS errors
-        throw std::runtime_error("Source image resolution does not match.");
+        ROS_ERROR_STREAM(
+            "Source image resolution does not match." << 
+            "width:     texture=" << width_  << ", input=" << src.cols << 
+            "height:    texture=" << height_ << ", input=" << src.rows << 
+            "channel:   texture=" << 3       << ", input=" << src.channels() << 
+            "elemSize1: texture=" << 1       << ", input=" << src.elemSize1());
+        return;
     }
 
     //Perform rendering
@@ -159,12 +189,12 @@ try
 }
 catch (cgs::egl::Exception& e)
 {
-    //TODO use ROS errors
+    ROS_FATAL_STREAM(e.what());
     throw;
 }
 catch (cgs::gl::Exception& e)
 {
-    //TODO use ROS errors
+    ROS_FATAL_STREAM(e.what());
     throw;
 }
 

@@ -43,7 +43,12 @@ void SimpleRendererNode::imageCallback(const sensor_msgs::Image::ConstPtr& msg)
     const auto& image = cv_ptr->image;
     renderer_->render(output_, image);
 
-    //TODO publish
+    //Publish
+    cv_bridge::CvImage outImage;;
+    outImage.header = cv_ptr->header;
+    outImage.encoding = cv_ptr->encoding;
+    outImage.image = output_;
+    imagePublisher_.publish(outImage.toImageMsg());
 }
 
 void SimpleRendererNode::run()

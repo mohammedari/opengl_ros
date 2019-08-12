@@ -1,0 +1,36 @@
+<?xml version="1.0"?>
+<launch>
+  <arg name="device" default="/dev/video0"/>
+  <arg name="width"  default="1280"/>
+  <arg name="height" default="720"/>
+
+  <node pkg="usb_cam" type="usb_cam_node" name="usb_cam" output="screen">
+    <param name="video_device" value="$(arg device)"/>
+    <param name="image_width" value="$(arg width)"/>
+    <param name="image_height" value="$(arg height)"/>
+    <param name="pixel_format" value="yuyv"/>
+    <param name="camera_frame_id" value="usb_cam"/>
+    <param name="io_method" value="mmap"/>
+
+    <remap from="/usb_cam/image_raw" to="/image_in"/>
+  </node>
+
+  <node pkg="opengl_ros" type="simple_renderer"
+    name="simple_renderer" output="screen">
+    <param name="width"  value="$(arg width)"/>
+    <param name="height" value="$(arg height)"/>
+    <param name="vertex_shader"   value="$(find opengl_ros_lib)/shader/vs_passthrough.glsl"/>
+    <param name="fragment_shader" value="$(find opengl_ros_lib)/shader/fs_passthrough.glsl"/>
+
+    <remap from="image_in" to="/image_in"/>
+    <remap from="image_out" to="/image_out"/>
+  </node>
+
+  <node pkg="image_view" type="image_view" name="viewer_in">
+    <remap from="image" to="/image_in"/>
+  </node>
+
+  <node pkg="image_view" type="image_view" name="viewer_out">
+    <remap from="image" to="/image_out"/>
+  </node>
+</launch>

@@ -26,7 +26,7 @@ public:
             if(ifs.fail())
             {
                 std::stringstream ss;
-                ss << "Failed to open \"" << filename << "\"";
+                ss << "Failed to initialize shader. Failed to open \"" << filename << "\"";
                 handleError(ss.str());
             }
 

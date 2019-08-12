@@ -9,11 +9,11 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS
-    roscpp
-    sensor_msgs
-    image_transport
-    cv_bridge
-    opengl_ros_lib
+  roscpp
+  sensor_msgs
+  image_transport
+  cv_bridge
+  opengl_ros_lib
 )
 
 ## System dependencies are found with CMake's conventions
@@ -119,8 +119,8 @@ catkin_package(
 ## Specify additional locations of header files
 ## Your package locations should be listed before other locations
 include_directories(
-    ${catkin_INCLUDE_DIRS}
-    ${opengl_ros_lib_INCLUDE_DIRS}
+  ${catkin_INCLUDE_DIRS}
+  ${opengl_ros_lib_INCLUDE_DIRS}
 )
 
 ## Declare a C++ library
@@ -134,14 +134,14 @@ include_directories(
 # add_dependencies(opengl_ros ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 ## Declare a C++ executable
-add_executable(simple_renderer_node src/simple_renderer_node.cpp src/simple_renderer_nodecore.cpp)
+add_executable(simple_renderer src/simple_renderer_node.cpp src/simple_renderer_nodecore.cpp)
 
 ## Add cmake target dependencies of the executable
 ## same as for the library above
 # add_dependencies(opengl_ros_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 ## Specify libraries to link a library or executable target against
-target_link_libraries(simple_renderer_node
+target_link_libraries(simple_renderer
   ${catkin_LIBRARIES}
   ${opengl_ros_lib_LIBRARIES}
 )
