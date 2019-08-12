@@ -20,7 +20,12 @@
     <param name="width"  value="$(arg width)"/>
     <param name="height" value="$(arg height)"/>
     <param name="vertex_shader"   value="$(find opengl_ros_lib)/shader/vs_passthrough.glsl"/>
-    <param name="fragment_shader" value="$(find opengl_ros_lib)/shader/fs_passthrough.glsl"/>
+    <param name="fragment_shader" value="$(find opengl_ros)/shader/fs_color_extraction.glsl"/>
+
+    <param name="threshold_l"   value="20"/>
+    <param name="svm_coef_a"    value="0.12164585"/>
+    <param name="svm_coef_b"    value="-0.02703241"/>
+    <param name="svm_intercept" value="-15.3409786"/>
 
     <remap from="image_in" to="/image_in"/>
     <remap from="image_out" to="/image_out"/>

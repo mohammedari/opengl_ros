@@ -200,6 +200,43 @@ catch (cgs::gl::Exception& e)
 
 SimpleRenderer::~SimpleRenderer() = default;
 
+void SimpleRenderer::uniform(const std::string& name, float v1) { 
+    glUniform1f(glGetUniformLocation(impl_->program_.get(), name.c_str()), v1);
+}
+void SimpleRenderer::uniform(const std::string& name, float v1, float v2) { 
+    glUniform2f(glGetUniformLocation(impl_->program_.get(), name.c_str()), v1, v2);
+}
+void SimpleRenderer::uniform(const std::string& name, float v1, float v2, float v3) { 
+    glUniform3f(glGetUniformLocation(impl_->program_.get(), name.c_str()), v1, v2, v3);
+}
+void SimpleRenderer::uniform(const std::string& name, float v1, float v2, float v3, float v4) { 
+    glUniform4f(glGetUniformLocation(impl_->program_.get(), name.c_str()), v1, v2, v3, v4);
+}
+void SimpleRenderer::uniform(const std::string& name, int v1) { 
+    glUniform1i(glGetUniformLocation(impl_->program_.get(), name.c_str()), v1);
+}
+void SimpleRenderer::uniform(const std::string& name, int v1, int v2) { 
+    glUniform2i(glGetUniformLocation(impl_->program_.get(), name.c_str()), v1, v2);
+}
+void SimpleRenderer::uniform(const std::string& name, int v1, int v2, int v3) { 
+    glUniform3i(glGetUniformLocation(impl_->program_.get(), name.c_str()), v1, v2, v3);
+}
+void SimpleRenderer::uniform(const std::string& name, int v1, int v2, int v3, int v4) { 
+    glUniform4i(glGetUniformLocation(impl_->program_.get(), name.c_str()), v1, v2, v3, v4);
+}
+void SimpleRenderer::uniform(const std::string& name, unsigned int v1) { 
+    glUniform1ui(glGetUniformLocation(impl_->program_.get(), name.c_str()), v1);
+}
+void SimpleRenderer::uniform(const std::string& name, unsigned int v1, unsigned int v2) { 
+    glUniform2ui(glGetUniformLocation(impl_->program_.get(), name.c_str()), v1, v2);
+}
+void SimpleRenderer::uniform(const std::string& name, unsigned int v1, unsigned int v2, unsigned int v3) { 
+    glUniform3ui(glGetUniformLocation(impl_->program_.get(), name.c_str()), v1, v2, v3);
+}
+void SimpleRenderer::uniform(const std::string& name, unsigned int v1, unsigned int v2, unsigned int v3, unsigned int v4) { 
+    glUniform4ui(glGetUniformLocation(impl_->program_.get(), name.c_str()), v1, v2, v3, v4);
+}
+
 void SimpleRenderer::render(cv::Mat& dest, const cv::Mat& src)
 {
     impl_->render(dest, src);
