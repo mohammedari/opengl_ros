@@ -1,5 +1,4 @@
 # OpenGL Simple GLSL Shader ROS Package
------
 This is a ROS package for providing simple implementation to utilize OpenGL shader (GLSL) code 
 with a GPU-powered machine under ROS environment, including 
 a simple class that retrieves OpenCV image as a texture, processing with GLSL shader codes, 
@@ -8,7 +7,6 @@ and write it back to an OpenCV image.
 ![image](./doc/image.png)
 
 ## How to build?
------
 
 ### Setup ROS 
 See http://wiki.ros.org/Installation and also setup catkin tools with the command below.
@@ -40,8 +38,7 @@ sudo apt-get install ros-kinetic-usb-cam
 catkin build
 ```
 
-## Run a example nodes
------
+## Run example nodes
 This repository includes example nodes that extract pixels with a specific color.
 The algorithms of color conversion and extraction are implemented in GLSL shader code.
 
@@ -56,7 +53,6 @@ roslaunch opengl_ros color_extraction_cpu.launch
 ```
 
 ## A simple instruction for OpenGL renderer class
------
 
 `cgs::SimpleRenderer` class in `opengl_ros_lib` package wraps everything for ease of use.
 You can just instantiate the class, 
@@ -80,5 +76,5 @@ cv::Mat output(height, width, CV_8UC3);
 renderer_->render(output_, cv_ptr->image);
 ```
 
-Please look at `simple_renderer_nodecore.cpp` for the reference of usage.
+Please look inside `simple_renderer_nodecore.cpp` for the reference of usage.
 
