@@ -123,8 +123,8 @@ SimpleRenderer::Impl::Impl(
     program_(shaders_), 
     vbo_(VERTICIES, GL_STATIC_DRAW), 
     ebo_(INDICIES, GL_STATIC_DRAW), 
-    textureIn_(GL_RGB8, width_, height_),
-    textureOut_(GL_RGB8, width_, height_),
+    textureIn_(GL_SRGB8, width_, height_),  //
+    textureOut_(GL_SRGB8, width_, height_), //Assuming sRGB input and output
     sampler_(GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE),
     fbo_(textureOut_)
 {

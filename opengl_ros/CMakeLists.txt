@@ -135,6 +135,7 @@ include_directories(
 
 ## Declare a C++ executable
 add_executable(simple_renderer src/simple_renderer_node.cpp src/simple_renderer_nodecore.cpp)
+add_executable(color_extraction_cpu src/color_extraction_cpu_node.cpp src/color_extraction_cpu_nodecore.cpp)
 
 ## Add cmake target dependencies of the executable
 ## same as for the library above
@@ -144,6 +145,9 @@ add_executable(simple_renderer src/simple_renderer_node.cpp src/simple_renderer_
 target_link_libraries(simple_renderer
   ${catkin_LIBRARIES}
   ${opengl_ros_lib_LIBRARIES}
+)
+target_link_libraries(color_extraction_cpu
+  ${catkin_LIBRARIES}
 )
 
 #############

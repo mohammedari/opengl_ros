@@ -1,6 +1,6 @@
 #version 450 core
 uniform vec2 resolution;
-uniform sampler2D texture;
+uniform sampler2D texture; //Assuming sRGB texture; converted to linear RGB by GPU automatically
 
 uniform float threshold_l;
 uniform float svm_coef_a;
@@ -12,6 +12,7 @@ out vec4 fragColor;
 
 vec3 rgb2xyz(vec3 rgb)
 {
+    //Column major order
     const mat3 mat = mat3(0.412453, 0.212671, 0.019334, 0.357580, 0.715160, 0.119193, 0.180423, 0.072169, 0.950227);
     return mat * rgb;
 }
@@ -41,8 +42,8 @@ vec3 xyz2lab(vec3 xyz)
 
     return vec3(
         L / 100.0, 
-        a / 2.0 + 0.5,
-        b / 2.0 + 0.5
+        a / 127.0 / 2.0 + 0.5,
+        b / 127.0 / 2.0 + 0.5
     );
 }
 

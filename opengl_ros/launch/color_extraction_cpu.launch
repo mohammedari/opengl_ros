@@ -17,12 +17,10 @@
     <remap from="/usb_cam/image_raw" to="/image_in"/>
   </node>
 
-  <node pkg="opengl_ros" type="simple_renderer"
-    name="simple_renderer" output="screen">
-    <param name="width"           value="$(arg width)"/>
-    <param name="height"          value="$(arg height)"/>
-    <param name="vertex_shader"   value="$(find opengl_ros_lib)/shader/vs_passthrough.glsl"/>
-    <param name="fragment_shader" value="$(find opengl_ros)/shader/fs_color_extraction.glsl"/>
+  <node pkg="opengl_ros" type="color_extraction_cpu"
+    name="color_extraction_cpu" output="screen">
+    <param name="width"  value="$(arg width)"/>
+    <param name="height" value="$(arg height)"/>
 
     <param name="threshold_l"   value="0"/>
     <param name="svm_coef_a"    value="0.266602955271"/>
