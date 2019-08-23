@@ -10,7 +10,7 @@
 namespace cgs {
 namespace gl {
 
-class VertexArray
+class VertexArray final
 {
     GLuint vao_;
 

@@ -9,7 +9,7 @@ namespace cgs {
 namespace gl {
 
 template<class T>
-class VertexBuffer
+class VertexBuffer final
 {
     GLuint vbo_;
     const size_t size_;

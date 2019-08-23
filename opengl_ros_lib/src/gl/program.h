@@ -8,9 +8,10 @@
 namespace cgs {
 namespace gl {
 
-class Program
+class Program final
 {
     GLuint program_;
+
 public:
     template<class CONTAINER>
     explicit Program(const CONTAINER& shaders)

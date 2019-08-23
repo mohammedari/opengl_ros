@@ -9,7 +9,7 @@
 namespace cgs {
 namespace gl {
 
-class TextureBuffer
+class TextureBuffer final
 {
     GLuint tbo_;
     GLuint texture_;

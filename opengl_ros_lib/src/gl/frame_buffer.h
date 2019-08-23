@@ -10,9 +10,10 @@
 namespace cgs {
 namespace gl {
 
-class FrameBuffer
+class FrameBuffer final
 {
     GLuint fbo_;
+
 public:
     FrameBuffer(const Texture2D& texture)
     {

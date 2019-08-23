@@ -8,7 +8,7 @@
 namespace cgs {
 namespace gl {
 
-class Texture2D
+class Texture2D final
 {
     GLuint texture_;
     GLsizei width_;

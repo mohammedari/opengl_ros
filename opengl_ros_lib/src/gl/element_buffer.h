@@ -9,7 +9,7 @@ namespace cgs {
 namespace gl {
 
 template<class T>
-class ElementBuffer
+class ElementBuffer final
 {
     GLuint ebo_;
     const size_t size_;

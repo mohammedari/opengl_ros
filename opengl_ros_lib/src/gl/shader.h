@@ -12,7 +12,7 @@
 namespace cgs {
 namespace gl {
 
-class Shader
+class Shader final
 {
     GLuint shader_;
 

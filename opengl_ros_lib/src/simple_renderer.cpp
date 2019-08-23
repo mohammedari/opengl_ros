@@ -1,4 +1,3 @@
-
 #include "simple_renderer.h"
 
 #include <array>
