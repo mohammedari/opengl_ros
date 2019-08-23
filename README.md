@@ -52,6 +52,15 @@ with the following command.
 roslaunch opengl_ros color_extraction_cpu.launch
 ```
 
+We have perfomed simple comparison of the performance of two nodes on Intel Core i5 5300U 2.3GHz (HD Graphics 5500).
+Execution time of GPU includes texture transmission between CPU and GPU.
+
+| Resolution | CPU     | GPU     |
+|------------|---------|---------|
+| 320x240    | 5.85 ms | 1.25 ms |
+| 640x480    | 21.8 ms | 4.30 ms |
+| 1280x720   | 60.0 ms | 12.3 ms |
+
 ## A simple instruction for OpenGL renderer class
 
 `cgs::SimpleRenderer` class in `opengl_ros_lib` package wraps everything for ease of use.
