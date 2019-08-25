@@ -7,6 +7,13 @@
 
 namespace cgs {
 
+/**
+ * A simple renderer class that providse a way to render on an OpenCV texture
+ * using arbitary vertex and fragment shader. Any uniform parameters for shaders 
+ * can be set with methods. The rendering method takes one OpenCV texture for 
+ * referring in the fragment shader, and another texture for writing the result
+ * on it.
+ */
 class SimpleRenderer final
 {
 public:
