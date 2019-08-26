@@ -7,7 +7,38 @@ import tf
 import curses
 import os
 
+import threading
+
+#TODO refrain to use global variables
+roll  = 0.0
+pitch = 0.0
+yaw   = 0.0
+
+def publisher(frame, parent_frame):
+    global roll
+    global pitch
+    global yaw
+
+    br = tf.TransformBroadcaster()
+    r = rospy.Rate(10)
+
+    while not rospy.is_shutdown():
+        br.sendTransform(
+            (0, 0, 0),
+            tf.transformations.quaternion_from_euler(
+                roll, 
+                pitch, 
+                yaw),
+            rospy.Time.now(),
+            frame,
+            parent_frame)
+        r.sleep()
+
 def main(win):
+    global roll
+    global pitch
+    global yaw
+
     win.clear()                
     win.addstr("Launched test_frame_broadcaster ros node\n")
     win.addstr("- W : Pitch Up\n")
@@ -18,16 +49,12 @@ def main(win):
     win.addstr("- Q : Roll Down\n")
 
     rospy.init_node('test_frame_broadcaster')
-    parent_frame = rospy.get_param('parent_frame', 'map')
     frame = rospy.get_param('frame', 'base_link')
-    step = float(rospy.get_param('step', '0.25'))
+    parent_frame = rospy.get_param('parent_frame', 'map')
+    step = float(rospy.get_param('step', '0.1'))
 
-    br = tf.TransformBroadcaster()
-    roll = 0.0
-    pitch = 0.0
-    yaw = 0.0
+    threading.Thread(target=publisher, args=(frame, parent_frame)).start()
 
-    r = rospy.Rate(10)
     while not rospy.is_shutdown():
         try:                 
             key = str(win.getkey())
@@ -47,13 +74,5 @@ def main(win):
 
         except Exception as e:
            pass         
-
-        br.sendTransform(
-            (0, 0, 0),
-            tf.transformations.quaternion_from_euler(roll, pitch, yaw),
-            rospy.Time.now(),
-            frame,
-            parent_frame)
-        r.sleep()
 
 curses.wrapper(main)
