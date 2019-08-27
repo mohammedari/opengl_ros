@@ -120,9 +120,9 @@ void SimpleRenderer::Impl::render(cv::Mat& dest, const cv::Mat& src)
 }
 
 SimpleRenderer::SimpleRenderer(
-        int width, int height, 
-        const std::string& vertexShader, 
-        const std::string& fragmentShader)
+    int width, int height, 
+    const std::string& vertexShader, 
+    const std::string& fragmentShader)
 try
     : impl_(std::make_unique<SimpleRenderer::Impl>(width, height, vertexShader, fragmentShader))
 {

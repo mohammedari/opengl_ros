@@ -44,10 +44,9 @@ struct DepthImageProjector::Impl
 
     Impl(int depthWidth, int depthHeight, 
         int gridMapWidth, int gridMapHeight, int gridMapLayerHeight,
-        const std::string& vertexShader, 
-        const std::string& fragmentShader);
+        const std::string& vertexShader, const std::string& fragmentShader);
 
-    void project(cv::Mat& dest, const cv::Mat& depth);
+    void project(cv::Mat& dest, const cv::Mat& src);
 };
 
 constexpr std::array<Vertex, 4> DepthImageProjector::Impl::VERTICIES;
@@ -56,8 +55,7 @@ constexpr std::array<uint, 6> DepthImageProjector::Impl::INDICIES;
 DepthImageProjector::Impl::Impl(
     int depthWidth, int depthHeight, 
     int gridMapWidth, int gridMapHeight, int gridMapLayerHeight, 
-    const std::string& vertexShader, 
-    const std::string& fragmentShader) : 
+    const std::string& vertexShader, const std::string& fragmentShader) : 
     context_(true),
     depthWidth_(depthWidth), depthHeight_(depthHeight), 
     gridMapWidth_(gridMapWidth), gridMapHeight_(gridMapHeight), 
@@ -69,7 +67,7 @@ DepthImageProjector::Impl::Impl(
     vbo_(VERTICIES, GL_STATIC_DRAW), 
     ebo_(INDICIES, GL_STATIC_DRAW), 
     textureIn_(GL_R16UI, depthWidth_, depthHeight_),  
-    textureOut_(GL_R8UI, gridMapWidth, gridMapHeight), //TODO specify appropriate parameter
+    textureOut_(GL_R8I, gridMapWidth, gridMapHeight),
     sampler_(GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE),
     fbo_(textureOut_)
 {
@@ -81,4 +79,77 @@ DepthImageProjector::Impl::Impl(
     //Verticies setup
     vao_.mapVariable(vbo_, glGetAttribLocation(program_.get(), "position"), 3, GL_FLOAT, 0);
     vao_.mapVariable(ebo_);
+}
+
+void DepthImageProjector::Impl::project(cv::Mat& dest, const cv::Mat& src)
+{
+    if (gridMapWidth_ != dest.cols || gridMapHeight_ != dest.rows || CV_8SC1 != dest.type())
+    {
+        ROS_ERROR_STREAM(
+            "Destination image resolution does not match." << 
+            "width:     texture=" << gridMapWidth_  << ", input=" << dest.cols << 
+            "height:    texture=" << gridMapHeight_ << ", input=" << dest.rows << 
+            "channel:   texture=" << 1              << ", input=" << dest.channels() << 
+            "elemSize1: texture=" << 1              << ", input=" << dest.elemSize1() << 
+            "Destination image type should be 8SC1.");
+        return;
+    }
+
+    if (depthWidth_ != src.cols || depthHeight_ != src.rows || CV_16UC1 != dest.type())
+    {
+        ROS_ERROR_STREAM(
+            "Source image resolution does not match." << 
+            "width:     texture=" << depthWidth_  << ", input=" << src.cols << 
+            "height:    texture=" << depthHeight_ << ", input=" << src.rows << 
+            "channel:   texture=" << 1            << ", input=" << src.channels() << 
+            "elemSize1: texture=" << 2            << ", input=" << src.elemSize1() << 
+            "Source image type should be 16UC1.");
+        return;
+    }
+
+    //Perform rendering
+    textureIn_.write(GL_R16, GL_UNSIGNED_BYTE, src.data);
+    textureIn_.bindToUnit(0);
+    sampler_.bindToUnit(0);
+
+    fbo_.bind();
+    glViewport(0, 0, gridMapWidth_, gridMapHeight_);
+
+    vao_.bind();
+    glDrawElements(GL_TRIANGLES, INDICIES.size(), GL_UNSIGNED_INT, nullptr);
+
+    glFinish();
+
+    //Read result
+    textureOut_.read(GL_R8I, GL_BYTE, dest.data, dest.rows * dest.cols * dest.channels());
+
+}
+
+DepthImageProjector::DepthImageProjector(
+    int depthWidth, int depthHeight, 
+    int gridMapWidth, int gridMapHeight, int gridMapLayerHeight, 
+    const std::string& vertexShader, const std::string& fragmentShader)
+try
+    : impl_(std::make_unique<DepthImageProjector::Impl>(
+        depthWidth, depthHeight, 
+        gridMapWidth, gridMapHeight, gridMapLayerHeight, 
+        vertexShader, fragmentShader))
+{
+}
+catch (cgs::egl::Exception& e)
+{
+    ROS_FATAL_STREAM(e.what());
+    throw;
+}
+catch (cgs::gl::Exception& e)
+{
+    ROS_FATAL_STREAM(e.what());
+    throw;
+}
+
+DepthImageProjector::~DepthImageProjector() = default;
+
+void DepthImageProjector::project(cv::Mat& dest, const cv::Mat& src)
+{
+    impl_->project(dest, src);
 }

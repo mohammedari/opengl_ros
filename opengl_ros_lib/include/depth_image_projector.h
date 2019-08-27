@@ -18,11 +18,10 @@ public:
     DepthImageProjector(
         int depthWidth, int depthHeight, 
         int gridMapWidth, int gridMapHeight, int gridMapLayerHeight, 
-        const std::string& vertexShader, 
-        const std::string& fragmentShader);
+        const std::string& vertexShader, const std::string& fragmentShader);
     ~DepthImageProjector();
 
-    void project(cv::Mat& dest, const cv::Mat& depth);
+    void project(cv::Mat& dest, const cv::Mat& src);
 
     DepthImageProjector(const DepthImageProjector&) = delete;
     DepthImageProjector& operator=(const DepthImageProjector&) = delete;
