@@ -83,22 +83,24 @@ void SimpleRenderer::Impl::render(cv::Mat& dest, const cv::Mat& src)
     if (width_ != dest.cols || height_ != dest.rows || CV_8UC3 != dest.type())
     {
         ROS_ERROR_STREAM(
-            "Destination image resolution does not match." << 
-            "width:     texture=" << width_  << ", input=" << dest.cols << 
-            "height:    texture=" << height_ << ", input=" << dest.rows << 
-            "channel:   texture=" << 3       << ", input=" << dest.channels() << 
-            "elemSize1: texture=" << 1       << ", input=" << dest.elemSize1());
+            "Destination image resolution does not match."                      << std::endl << 
+            "width:     texture=" << width_   << ", input=" << dest.cols        << std::endl << 
+            "height:    texture=" << height_  << ", input=" << dest.rows        << std::endl << 
+            "channel:   texture=" << 3        << ", input=" << dest.channels()  << std::endl << 
+            "elemSize1: texture=" << 1        << ", input=" << dest.elemSize1() << std::endl << 
+            "type:      texture=" << CV_8UC3  << ", input=" << dest.type());
         return;
     }
 
-    if (width_ != src.cols || height_ != src.rows || CV_8UC3 != dest.type())
+    if (width_ != src.cols || height_ != src.rows || CV_8UC3 != src.type())
     {
         ROS_ERROR_STREAM(
-            "Source image resolution does not match." << 
-            "width:     texture=" << width_  << ", input=" << src.cols << 
-            "height:    texture=" << height_ << ", input=" << src.rows << 
-            "channel:   texture=" << 3       << ", input=" << src.channels() << 
-            "elemSize1: texture=" << 1       << ", input=" << src.elemSize1());
+            "Source image resolution does not match."                           << std::endl << 
+            "width:     texture=" << width_   << ", input=" << src.cols         << std::endl << 
+            "height:    texture=" << height_  << ", input=" << src.rows         << std::endl << 
+            "channel:   texture=" << 3        << ", input=" << src.channels()   << std::endl << 
+            "elemSize1: texture=" << 1        << ", input=" << src.elemSize1()  << std::endl << 
+            "type:      texture=" << CV_8UC3  << ", input=" << src.type());
         return;
     }
 

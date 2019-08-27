@@ -43,7 +43,7 @@ struct DepthImageProjector::Impl
     cgs::gl::FrameBuffer fbo_;
 
     Impl(int depthWidth, int depthHeight, 
-        int gridMapWidth, int gridMapHeight, int gridMapLayerHeight,
+        int gridMapWidth, int gridMapHeight, float gridMapResolution, float gridMapLayerHeight,
         const std::string& vertexShader, const std::string& fragmentShader);
 
     void project(cv::Mat& dest, const cv::Mat& src);
@@ -54,7 +54,7 @@ constexpr std::array<uint, 6> DepthImageProjector::Impl::INDICIES;
 
 DepthImageProjector::Impl::Impl(
     int depthWidth, int depthHeight, 
-    int gridMapWidth, int gridMapHeight, int gridMapLayerHeight, 
+    int gridMapWidth, int gridMapHeight, float gridMapResolution, float gridMapLayerHeight, 
     const std::string& vertexShader, const std::string& fragmentShader) : 
     context_(true),
     depthWidth_(depthWidth), depthHeight_(depthHeight), 
@@ -66,8 +66,8 @@ DepthImageProjector::Impl::Impl(
     program_(shaders_), 
     vbo_(VERTICIES, GL_STATIC_DRAW), 
     ebo_(INDICIES, GL_STATIC_DRAW), 
-    textureIn_(GL_R16UI, depthWidth_, depthHeight_),  
-    textureOut_(GL_R8I, gridMapWidth, gridMapHeight),
+    textureIn_(GL_R16, depthWidth_, depthHeight_),  
+    textureOut_(GL_R8, gridMapWidth, gridMapHeight),
     sampler_(GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE),
     fbo_(textureOut_)
 {
@@ -86,29 +86,29 @@ void DepthImageProjector::Impl::project(cv::Mat& dest, const cv::Mat& src)
     if (gridMapWidth_ != dest.cols || gridMapHeight_ != dest.rows || CV_8SC1 != dest.type())
     {
         ROS_ERROR_STREAM(
-            "Destination image resolution does not match." << 
-            "width:     texture=" << gridMapWidth_  << ", input=" << dest.cols << 
-            "height:    texture=" << gridMapHeight_ << ", input=" << dest.rows << 
-            "channel:   texture=" << 1              << ", input=" << dest.channels() << 
-            "elemSize1: texture=" << 1              << ", input=" << dest.elemSize1() << 
-            "Destination image type should be 8SC1.");
+            "Destination image resolution does not match."                            << std::endl <<
+            "width:     texture=" << gridMapWidth_  << ", input=" << dest.cols        << std::endl <<
+            "height:    texture=" << gridMapHeight_ << ", input=" << dest.rows        << std::endl <<
+            "channel:   texture=" << 1              << ", input=" << dest.channels()  << std::endl <<
+            "elemSize1: texture=" << 1              << ", input=" << dest.elemSize1() << std::endl <<
+            "type:      texture=" << CV_8SC1        << ", input=" << dest.type());
         return;
     }
 
-    if (depthWidth_ != src.cols || depthHeight_ != src.rows || CV_16UC1 != dest.type())
+    if (depthWidth_ != src.cols || depthHeight_ != src.rows || CV_16UC1 != src.type())
     {
         ROS_ERROR_STREAM(
-            "Source image resolution does not match." << 
-            "width:     texture=" << depthWidth_  << ", input=" << src.cols << 
-            "height:    texture=" << depthHeight_ << ", input=" << src.rows << 
-            "channel:   texture=" << 1            << ", input=" << src.channels() << 
-            "elemSize1: texture=" << 2            << ", input=" << src.elemSize1() << 
-            "Source image type should be 16UC1.");
+            "Source image resolution does not match."                              << std::endl <<
+            "width:     texture=" << depthWidth_  << ", input=" << src.cols        << std::endl <<
+            "height:    texture=" << depthHeight_ << ", input=" << src.rows        << std::endl <<
+            "channel:   texture=" << 1            << ", input=" << src.channels()  << std::endl <<
+            "elemSize1: texture=" << 2            << ", input=" << src.elemSize1() << std::endl <<
+            "type:      texture=" << CV_16UC1     << ", input=" << src.type());
         return;
     }
 
     //Perform rendering
-    textureIn_.write(GL_R16, GL_UNSIGNED_BYTE, src.data);
+    textureIn_.write(GL_RED, GL_UNSIGNED_SHORT, src.data);
     textureIn_.bindToUnit(0);
     sampler_.bindToUnit(0);
 
@@ -121,18 +121,18 @@ void DepthImageProjector::Impl::project(cv::Mat& dest, const cv::Mat& src)
     glFinish();
 
     //Read result
-    textureOut_.read(GL_R8I, GL_BYTE, dest.data, dest.rows * dest.cols * dest.channels());
+    textureOut_.read(GL_RED, GL_BYTE, dest.data, dest.rows * dest.cols * dest.channels());
 
 }
 
 DepthImageProjector::DepthImageProjector(
     int depthWidth, int depthHeight, 
-    int gridMapWidth, int gridMapHeight, int gridMapLayerHeight, 
+    int gridMapWidth, int gridMapHeight, float gridMapResolution, float gridMapLayerHeight, 
     const std::string& vertexShader, const std::string& fragmentShader)
 try
     : impl_(std::make_unique<DepthImageProjector::Impl>(
         depthWidth, depthHeight, 
-        gridMapWidth, gridMapHeight, gridMapLayerHeight, 
+        gridMapWidth, gridMapHeight, gridMapResolution, gridMapLayerHeight, 
         vertexShader, fragmentShader))
 {
 }
