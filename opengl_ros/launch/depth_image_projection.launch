@@ -31,8 +31,8 @@
     name="depth_image_projector" output="screen">
     <param name="depthWidth"      value="$(arg width)"/>
     <param name="depthHeight"     value="$(arg height)"/>
-    <param name="vertex_shader"   value="$(find opengl_ros_lib)/shader/vs_passthrough.glsl"/>
-    <param name="fragment_shader" value="$(find opengl_ros_lib)/shader/fs_passthrough.glsl"/>
+    <param name="vertex_shader"   value="$(find opengl_ros_lib)/shader/vs_depth_image_projection.glsl"/>
+    <param name="fragment_shader" value="$(find opengl_ros_lib)/shader/fs_depth_image_projection.glsl"/>
 
     <remap from="image_in"  to="/d435/depth/image_rect_raw"/>
     <remap from="image_out" to="/image_out"/>

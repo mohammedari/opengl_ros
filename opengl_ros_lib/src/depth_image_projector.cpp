@@ -13,30 +13,22 @@ using namespace cgs;
 struct Vertex
 {
     float x, y, z;
+
+    Vertex(float x, float y, float z) : 
+        x(x), y(y), z(z)
+    {}
 };
 
 struct DepthImageProjector::Impl
 {
-    static constexpr std::array<Vertex, 4> VERTICIES = {
-        -1.f, -1.f, 0.0f,
-         1.f, -1.f, 0.0f,
-         1.f,  1.f, 0.0f,
-        -1.f,  1.f, 0.0f,
-    };
-
-    static constexpr std::array<uint, 6> INDICIES = {
-        0, 1, 2, 
-        2, 3, 0,
-    };
-
     OpenGLContext context_;
     const int depthWidth_, depthHeight_;
     const int gridMapWidth_, gridMapHeight_;
 
     std::array<cgs::gl::Shader, 2> shaders_;
     cgs::gl::Program program_;
+    std::vector<Vertex> verticies_;
     cgs::gl::VertexBuffer<Vertex> vbo_;
-    cgs::gl::ElementBuffer<uint> ebo_;
     cgs::gl::VertexArray vao_;
     cgs::gl::Texture2D textureIn_, textureOut_;
     cgs::gl::Sampler sampler_;
@@ -48,9 +40,6 @@ struct DepthImageProjector::Impl
 
     void project(cv::Mat& dest, const cv::Mat& src);
 };
-
-constexpr std::array<Vertex, 4> DepthImageProjector::Impl::VERTICIES;
-constexpr std::array<uint, 6> DepthImageProjector::Impl::INDICIES;
 
 DepthImageProjector::Impl::Impl(
     int depthWidth, int depthHeight, 
@@ -64,8 +53,14 @@ DepthImageProjector::Impl::Impl(
         cgs::gl::Shader(GL_FRAGMENT_SHADER, fragmentShader),
     }), 
     program_(shaders_), 
-    vbo_(VERTICIES, GL_STATIC_DRAW), 
-    ebo_(INDICIES, GL_STATIC_DRAW), 
+    verticies_([](int width, int height){
+        std::vector<Vertex> v;
+        for (int i = 0; i < height; ++i)
+            for (int j = 0; j < width; ++j)
+                v.emplace_back(i, j, 0);
+        return v;
+    }(gridMapWidth, gridMapHeight)),
+    vbo_(verticies_, GL_STATIC_DRAW), 
     textureIn_(GL_R16, depthWidth_, depthHeight_),  
     textureOut_(GL_R8, gridMapWidth, gridMapHeight),
     sampler_(GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE),
@@ -73,15 +68,17 @@ DepthImageProjector::Impl::Impl(
 {
     //Shaders setup
     program_.use();
-    glUniform2f(glGetUniformLocation(program_.get(), "resolution"), gridMapWidth_, gridMapHeight_);
+    glUniform2f(glGetUniformLocation(program_.get(), "depthSize"), depthWidth, depthHeight);
     glUniform1i(glGetUniformLocation(program_.get(), "texture"), 0);
+    glUniform2f(glGetUniformLocation(program_.get(), "gridMapSize"), gridMapWidth_, gridMapHeight_);
+    glUniform1f(glGetUniformLocation(program_.get(), "gridMapResolution"), gridMapResolution);
+    glUniform1f(glGetUniformLocation(program_.get(), "gridMapLayerHeight"), gridMapLayerHeight);
 
     //Verticies setup
     vao_.mapVariable(vbo_, glGetAttribLocation(program_.get(), "position"), 3, GL_FLOAT, 0);
-    vao_.mapVariable(ebo_);
 }
 
-void DepthImageProjector::Impl::project(cv::Mat& dest, const cv::Mat& src)
+void DepthImageProjector::Impl::project(cv::Mat& dest, const cv::Mat& src) //TODO add projection matrix argument
 {
     if (gridMapWidth_ != dest.cols || gridMapHeight_ != dest.rows || CV_8SC1 != dest.type())
     {
@@ -107,6 +104,10 @@ void DepthImageProjector::Impl::project(cv::Mat& dest, const cv::Mat& src)
         return;
     }
 
+    //TODO update projection matrix
+    glUniform2f(glGetUniformLocation(program_.get(), "focalLength"), 0, 0);
+    glUniform2f(glGetUniformLocation(program_.get(), "center"), 0, 0);
+
     //Perform rendering
     textureIn_.write(GL_RED, GL_UNSIGNED_SHORT, src.data);
     textureIn_.bindToUnit(0);
@@ -116,7 +117,7 @@ void DepthImageProjector::Impl::project(cv::Mat& dest, const cv::Mat& src)
     glViewport(0, 0, gridMapWidth_, gridMapHeight_);
 
     vao_.bind();
-    glDrawElements(GL_TRIANGLES, INDICIES.size(), GL_UNSIGNED_INT, nullptr);
+    glDrawArrays(GL_POINTS, 0, verticies_.size());
 
     glFinish();
 
