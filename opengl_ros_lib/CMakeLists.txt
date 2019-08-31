@@ -16,6 +16,7 @@ find_package(catkin REQUIRED COMPONENTS
 # find_package(Boost REQUIRED COMPONENTS system)
 
 add_subdirectory(thirdparty/glad)
+add_subdirectory(thirdparty/renderdoc)
 
 ## Uncomment this if the package has a setup.py. This macro ensures
 ## modules and global scripts declared therein get installed
@@ -125,6 +126,7 @@ add_library(opengl_ros_lib
   src/simple_renderer.cpp
   src/opengl_context.cpp
   src/depth_image_projector.cpp
+  src/renderdoc_wrapper.cpp
 )
 
 ## Add cmake target dependencies of the library
@@ -146,6 +148,7 @@ target_link_libraries(opengl_ros_lib
   EGL
   glad
   dl
+  renderdoc
 )
 
 #############

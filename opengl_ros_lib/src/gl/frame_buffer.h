@@ -18,6 +18,9 @@ public:
     FrameBuffer(const Texture2D& texture)
     {
         glCreateFramebuffers(1, &fbo_);
+
+        std::cout << "framebuffer " << fbo_ << std::endl;
+
         glNamedFramebufferTexture(fbo_, GL_COLOR_ATTACHMENT0, texture.get(), 0);
 
         constexpr std::array<GLenum, 1> drawBuffers = {

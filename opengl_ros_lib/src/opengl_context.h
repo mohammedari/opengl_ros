@@ -14,6 +14,7 @@ class OpenGLContext
 
 public:
     explicit OpenGLContext(bool enableDebugOutput);
+    EGLContext get() const { return context_.get(); }
 
     OpenGLContext(const OpenGLContext&) = delete;
     OpenGLContext& operator=(const OpenGLContext&) = delete;

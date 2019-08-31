@@ -6,6 +6,7 @@
 #include <ros/ros.h>
 
 #include "opengl_context.h"
+#include "renderdoc_wrapper.h"
 #include "gl/gl.h"
 
 using namespace cgs;
@@ -21,6 +22,7 @@ struct Vertex
 
 struct DepthImageProjector::Impl
 {
+    RenderDoc renderdoc_;
     OpenGLContext context_;
     const int depthWidth_, depthHeight_;
     const int gridMapWidth_, gridMapHeight_;
@@ -37,6 +39,7 @@ struct DepthImageProjector::Impl
     Impl(int depthWidth, int depthHeight, 
         int gridMapWidth, int gridMapHeight, float gridMapResolution, float gridMapLayerHeight,
         const std::string& vertexShader, const std::string& fragmentShader);
+    ~Impl();
 
     void project(cv::Mat& dest, const cv::Mat& src);
 };
@@ -45,6 +48,7 @@ DepthImageProjector::Impl::Impl(
     int depthWidth, int depthHeight, 
     int gridMapWidth, int gridMapHeight, float gridMapResolution, float gridMapLayerHeight, 
     const std::string& vertexShader, const std::string& fragmentShader) : 
+    renderdoc_("/home/mohammedari/depth_image_projector"),
     context_(true),
     depthWidth_(depthWidth), depthHeight_(depthHeight), 
     gridMapWidth_(gridMapWidth), gridMapHeight_(gridMapHeight), 
@@ -76,6 +80,13 @@ DepthImageProjector::Impl::Impl(
 
     //Verticies setup
     vao_.mapVariable(vbo_, glGetAttribLocation(program_.get(), "position"), 3, GL_FLOAT, 0);
+
+    renderdoc_.StartFrameCapture(context_);
+}
+
+DepthImageProjector::Impl::~Impl()
+{
+    renderdoc_.EndFrameCapture(context_);
 }
 
 void DepthImageProjector::Impl::project(cv::Mat& dest, const cv::Mat& src) //TODO add projection matrix argument
@@ -123,7 +134,6 @@ void DepthImageProjector::Impl::project(cv::Mat& dest, const cv::Mat& src) //TOD
 
     //Read result
     textureOut_.read(GL_RED, GL_BYTE, dest.data, dest.rows * dest.cols * dest.channels());
-
 }
 
 DepthImageProjector::DepthImageProjector(
