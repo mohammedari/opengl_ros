@@ -1,7 +1,11 @@
 <?xml version="1.0"?>
 <launch>
-  <arg name="width"     default="640"/>
-  <arg name="height"    default="360"/>
+  <arg name="depth_width"           default="640"/>
+  <arg name="depth_height"          default="360"/>
+  <arg name="grid_map_width"        default="500"/>
+  <arg name="grid_map_height"       default="500"/>
+  <arg name="grid_map_resolution"   default="0.01"/>
+  <arg name="grid_map_layer_height" default="1"/>
   <arg name="frame_rate" default="30"/>
 
   <group ns="d435">
@@ -18,8 +22,8 @@
       <param name="enable_infra2"            type="bool" value="false"/>
       <param name="enable_color"             type="bool" value="false"/>
   
-      <param name="depth_width"              type="int"  value="$(arg width)"/>
-      <param name="depth_height"             type="int"  value="$(arg height)"/>
+      <param name="depth_width"              type="int"  value="$(arg depth_width)"/>
+      <param name="depth_height"             type="int"  value="$(arg depth_height)"/>
       <param name="depth_fps"                type="int"  value="$(arg frame_rate)"/>
       <param name="base_frame_id"            type="str"  value="d435_link"/>
       <param name="depth_frame_id"           type="str"  value="d435_depth_link"/>
@@ -29,10 +33,14 @@
 
   <node pkg="opengl_ros" type="depth_image_projector"
     name="depth_image_projector" output="screen">
-    <param name="depthWidth"      value="$(arg width)"/>
-    <param name="depthHeight"     value="$(arg height)"/>
-    <param name="vertex_shader"   value="$(find opengl_ros_lib)/shader/vs_depth_image_projection.glsl"/>
-    <param name="fragment_shader" value="$(find opengl_ros_lib)/shader/fs_depth_image_projection.glsl"/>
+    <param name="depthWidth"         value="$(arg depth_width)"/>
+    <param name="depthHeight"        value="$(arg depth_height)"/>
+    <param name="gridMapWidth"       value="$(arg grid_map_width)"/>
+    <param name="gridMapHeight"      value="$(arg grid_map_height)"/>
+    <param name="gridMapResolution"  value="$(arg grid_map_resolution)"/>
+    <param name="gridMapLayerHeight" value="$(arg grid_map_layer_height)"/>
+    <param name="vertex_shader"      value="$(find opengl_ros_lib)/shader/vs_depth_image_projection.glsl"/>
+    <param name="fragment_shader"    value="$(find opengl_ros_lib)/shader/fs_depth_image_projection.glsl"/>
 
     <remap from="image_in"  to="/d435/depth/image_rect_raw"/>
     <remap from="image_out" to="/image_out"/>

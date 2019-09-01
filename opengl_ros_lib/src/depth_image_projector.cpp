@@ -55,21 +55,22 @@ DepthImageProjector::Impl::Impl(
     program_(shaders_), 
     verticies_([](int width, int height){
         std::vector<Vertex> v;
-        for (int i = 0; i < height; ++i)
-            for (int j = 0; j < width; ++j)
+        for (int j = 0; j < height; ++j)
+            for (int i = 0; i < width; ++i)
                 v.emplace_back(i, j, 0);
         return v;
-    }(gridMapWidth, gridMapHeight)),
+    }(depthWidth, depthHeight)),
     vbo_(verticies_, GL_STATIC_DRAW), 
-    textureIn_(GL_R16, depthWidth_, depthHeight_),  
-    textureOut_(GL_R8, gridMapWidth, gridMapHeight),
-    sampler_(GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE),
+    textureIn_(GL_R16UI, depthWidth_, depthHeight_),  
+    textureOut_(GL_R8I, gridMapWidth, gridMapHeight),
+    sampler_(GL_NEAREST, GL_NEAREST, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE),
     fbo_(textureOut_)
 {
     //Shaders setup
     program_.use();
     glUniform2f(glGetUniformLocation(program_.get(), "depthSize"), depthWidth, depthHeight);
-    glUniform1i(glGetUniformLocation(program_.get(), "texture"), 0);
+    glUniform1f(glGetUniformLocation(program_.get(), "depthUnit"), 0.001); //TODO change to be set external parameter
+    glUniform1i(glGetUniformLocation(program_.get(), "depthTexture"), 0);
     glUniform2f(glGetUniformLocation(program_.get(), "gridMapSize"), gridMapWidth_, gridMapHeight_);
     glUniform1f(glGetUniformLocation(program_.get(), "gridMapResolution"), gridMapResolution);
     glUniform1f(glGetUniformLocation(program_.get(), "gridMapLayerHeight"), gridMapLayerHeight);
@@ -105,15 +106,17 @@ void DepthImageProjector::Impl::project(cv::Mat& dest, const cv::Mat& src) //TOD
     }
 
     //TODO update projection matrix
-    glUniform2f(glGetUniformLocation(program_.get(), "focalLength"), 0, 0);
-    glUniform2f(glGetUniformLocation(program_.get(), "center"), 0, 0);
+    glUniform2f(glGetUniformLocation(program_.get(), "focalLength"), 323.7779846191406, 323.7779846191406);
+    glUniform2f(glGetUniformLocation(program_.get(), "center"), 322.2593078613281, 182.6495361328125);
 
     //Perform rendering
-    textureIn_.write(GL_RED, GL_UNSIGNED_SHORT, src.data);
+    textureIn_.write(GL_RED_INTEGER, GL_UNSIGNED_SHORT, src.data);
     textureIn_.bindToUnit(0);
     sampler_.bindToUnit(0);
 
     fbo_.bind();
+	glClearColor(0 , 0 , 0 , 0);
+	glClear(GL_COLOR_BUFFER_BIT);
     glViewport(0, 0, gridMapWidth_, gridMapHeight_);
 
     vao_.bind();
@@ -122,8 +125,7 @@ void DepthImageProjector::Impl::project(cv::Mat& dest, const cv::Mat& src) //TOD
     glFinish();
 
     //Read result
-    textureOut_.read(GL_RED, GL_BYTE, dest.data, dest.rows * dest.cols * dest.channels());
-
+    textureOut_.read(GL_RED_INTEGER, GL_BYTE, dest.data, dest.rows * dest.cols * dest.channels());
 }
 
 DepthImageProjector::DepthImageProjector(
