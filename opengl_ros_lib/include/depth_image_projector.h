@@ -17,7 +17,8 @@ class DepthImageProjector final
 public:
     DepthImageProjector(
         int depthWidth, int depthHeight, 
-        int gridMapWidth, int gridMapHeight, float gridMapResolution, float gridMapLayerHeight, 
+        int gridMapWidth, int gridMapHeight, float gridMapResolution, 
+        float gridMapLayerHeight, float gridMapAccumulationWeight,
         const std::string& vertexShader, const std::string& fragmentShader);
     ~DepthImageProjector();
 

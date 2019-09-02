@@ -35,7 +35,8 @@ struct DepthImageProjector::Impl
     cgs::gl::FrameBuffer fbo_;
 
     Impl(int depthWidth, int depthHeight, 
-        int gridMapWidth, int gridMapHeight, float gridMapResolution, float gridMapLayerHeight,
+        int gridMapWidth, int gridMapHeight, float gridMapResolution, 
+        float gridMapLayerHeight, float gridMapAccumulationWeight,
         const std::string& vertexShader, const std::string& fragmentShader);
 
     void project(cv::Mat& dest, const cv::Mat& src);
@@ -43,7 +44,8 @@ struct DepthImageProjector::Impl
 
 DepthImageProjector::Impl::Impl(
     int depthWidth, int depthHeight, 
-    int gridMapWidth, int gridMapHeight, float gridMapResolution, float gridMapLayerHeight, 
+    int gridMapWidth, int gridMapHeight, float gridMapResolution, 
+    float gridMapLayerHeight, float gridMapAccumulationWeight,
     const std::string& vertexShader, const std::string& fragmentShader) : 
     context_(true),
     depthWidth_(depthWidth), depthHeight_(depthHeight), 
@@ -74,6 +76,7 @@ DepthImageProjector::Impl::Impl(
     glUniform2f(glGetUniformLocation(program_.get(), "gridMapSize"), gridMapWidth_, gridMapHeight_);
     glUniform1f(glGetUniformLocation(program_.get(), "gridMapResolution"), gridMapResolution);
     glUniform1f(glGetUniformLocation(program_.get(), "gridMapLayerHeight"), gridMapLayerHeight);
+    glUniform1f(glGetUniformLocation(program_.get(), "gridMapAccumulationWeight"), gridMapAccumulationWeight);
 
     //Verticies setup
     vao_.mapVariable(vbo_, glGetAttribLocation(program_.get(), "position"), 3, GL_FLOAT, 0);
@@ -130,12 +133,14 @@ void DepthImageProjector::Impl::project(cv::Mat& dest, const cv::Mat& src) //TOD
 
 DepthImageProjector::DepthImageProjector(
     int depthWidth, int depthHeight, 
-    int gridMapWidth, int gridMapHeight, float gridMapResolution, float gridMapLayerHeight, 
+    int gridMapWidth, int gridMapHeight, float gridMapResolution, 
+    float gridMapLayerHeight, float gridMapAccumulationWeight, 
     const std::string& vertexShader, const std::string& fragmentShader)
 try
     : impl_(std::make_unique<DepthImageProjector::Impl>(
         depthWidth, depthHeight, 
-        gridMapWidth, gridMapHeight, gridMapResolution, gridMapLayerHeight, 
+        gridMapWidth, gridMapHeight, gridMapResolution, 
+        gridMapLayerHeight, gridMapAccumulationWeight, 
         vertexShader, fragmentShader))
 {
 }
