@@ -64,14 +64,14 @@ DepthImageProjector::Impl::Impl(
     }(depthWidth, depthHeight)),
     vbo_(verticies_, GL_STATIC_DRAW), 
     textureIn_(GL_R16UI, depthWidth_, depthHeight_),  
-    textureOut_(GL_R8I, gridMapWidth, gridMapHeight),
+    textureOut_(GL_R8, gridMapWidth, gridMapHeight),
     sampler_(GL_NEAREST, GL_NEAREST, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE),
     fbo_(textureOut_)
 {
     //Shaders setup
     program_.use();
     glUniform2f(glGetUniformLocation(program_.get(), "depthSize"), depthWidth, depthHeight);
-    glUniform1f(glGetUniformLocation(program_.get(), "depthUnit"), 0.001); //TODO change to be set external parameter
+    glUniform1f(glGetUniformLocation(program_.get(), "depthUnit"), 0.001); //TODO change to be set with an external parameter
     glUniform1i(glGetUniformLocation(program_.get(), "depthTexture"), 0);
     glUniform2f(glGetUniformLocation(program_.get(), "gridMapSize"), gridMapWidth_, gridMapHeight_);
     glUniform1f(glGetUniformLocation(program_.get(), "gridMapResolution"), gridMapResolution);
@@ -80,11 +80,16 @@ DepthImageProjector::Impl::Impl(
 
     //Verticies setup
     vao_.mapVariable(vbo_, glGetAttribLocation(program_.get(), "position"), 3, GL_FLOAT, 0);
+
+    //Enable blending
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_ONE, GL_ONE);
+    glBlendEquation(GL_FUNC_ADD);
 }
 
 void DepthImageProjector::Impl::project(cv::Mat& dest, const cv::Mat& src) //TODO add projection matrix argument
 {
-    if (gridMapWidth_ != dest.cols || gridMapHeight_ != dest.rows || CV_8SC1 != dest.type())
+    if (gridMapWidth_ != dest.cols || gridMapHeight_ != dest.rows || CV_8UC1 != dest.type())
     {
         ROS_ERROR_STREAM(
             "Destination image resolution does not match."                            << std::endl <<
@@ -92,7 +97,7 @@ void DepthImageProjector::Impl::project(cv::Mat& dest, const cv::Mat& src) //TOD
             "height:    texture=" << gridMapHeight_ << ", input=" << dest.rows        << std::endl <<
             "channel:   texture=" << 1              << ", input=" << dest.channels()  << std::endl <<
             "elemSize1: texture=" << 1              << ", input=" << dest.elemSize1() << std::endl <<
-            "type:      texture=" << CV_8SC1        << ", input=" << dest.type());
+            "type:      texture=" << CV_8UC1        << ", input=" << dest.type());
         return;
     }
 
@@ -118,9 +123,9 @@ void DepthImageProjector::Impl::project(cv::Mat& dest, const cv::Mat& src) //TOD
     sampler_.bindToUnit(0);
 
     fbo_.bind();
-	glClearColor(0 , 0 , 0 , 0);
-	glClear(GL_COLOR_BUFFER_BIT);
     glViewport(0, 0, gridMapWidth_, gridMapHeight_);
+    glClearColor(0, 0, 0, 0);
+    glClear(GL_COLOR_BUFFER_BIT);
 
     vao_.bind();
     glDrawArrays(GL_POINTS, 0, verticies_.size());
@@ -128,7 +133,7 @@ void DepthImageProjector::Impl::project(cv::Mat& dest, const cv::Mat& src) //TOD
     glFinish();
 
     //Read result
-    textureOut_.read(GL_RED_INTEGER, GL_BYTE, dest.data, dest.rows * dest.cols * dest.channels());
+    textureOut_.read(GL_RED, GL_UNSIGNED_BYTE, dest.data, dest.rows * dest.cols * dest.channels());
 }
 
 DepthImageProjector::DepthImageProjector(

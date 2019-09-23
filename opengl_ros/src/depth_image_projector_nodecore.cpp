@@ -32,10 +32,11 @@ DepthImageProjectorNode::DepthImageProjectorNode(const ros::NodeHandle& nh, cons
     projector_ = std::make_unique<cgs::DepthImageProjector>(
         depthWidth, depthHeight, 
         gridMapWidth, gridMapHeight, gridMapResolution, gridMapLayerHeight,
+        gridMapAccumulationWeight,
         vertexShader, fragmentShader
     );
 
-    output_.create(gridMapHeight, gridMapWidth, CV_8SC1);
+    output_.create(gridMapHeight, gridMapWidth, CV_8UC1);
 }
 
 void DepthImageProjectorNode::imageCallback(const sensor_msgs::Image::ConstPtr& msg)
