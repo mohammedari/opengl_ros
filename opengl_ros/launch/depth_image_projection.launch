@@ -47,7 +47,8 @@
     <param name="vertex_shader"             value="$(find opengl_ros_lib)/shader/vs_depth_image_projection.glsl"/>
     <param name="fragment_shader"           value="$(find opengl_ros_lib)/shader/fs_depth_image_projection.glsl"/>
 
-    <remap from="image_in"  to="/d435/depth/image_rect_raw"/>
+    <remap from="color_in"  to="/d435/color/image_raw"/>
+    <remap from="depth_in"  to="/d435/depth/image_rect_raw"/>
     <remap from="image_out" to="/occupancy_grid_image"/>
   </node>
 

@@ -16,13 +16,14 @@ class DepthImageProjector final
 {
 public:
     DepthImageProjector(
+        int colorWidth, int colorHeight, 
         int depthWidth, int depthHeight, 
         int gridMapWidth, int gridMapHeight, float gridMapResolution, 
         float gridMapLayerHeight, float gridMapAccumulationWeight,
         const std::string& vertexShader, const std::string& fragmentShader);
     ~DepthImageProjector();
 
-    void project(cv::Mat& dest, const cv::Mat& src);
+    void project(cv::Mat& dest, const cv::Mat& color, const cv::Mat& depth);
 
     DepthImageProjector(const DepthImageProjector&) = delete;
     DepthImageProjector& operator=(const DepthImageProjector&) = delete;
