@@ -43,6 +43,17 @@ DepthImageProjectorNode::DepthImageProjectorNode(const ros::NodeHandle& nh, cons
         vertexShader, fragmentShader
     );
 
+    float threshold_l, svm_coef_a, svm_coef_b, svm_intercept;
+    nh_.param<float>("threshold_l"  , threshold_l  , 0);
+    nh_.param<float>("svm_coef_a"   , svm_coef_a   , 0);
+    nh_.param<float>("svm_coef_b"   , svm_coef_b   , 0);
+    nh_.param<float>("svm_intercept", svm_intercept, 0);
+
+    projector_->uniform("threshold_l"  , threshold_l);
+    projector_->uniform("svm_coef_a"   , svm_coef_a);
+    projector_->uniform("svm_coef_b"   , svm_coef_b);
+    projector_->uniform("svm_intercept", svm_intercept);
+
     output_.create(gridMapHeight, gridMapWidth, CV_8UC3);
 }
 

@@ -56,15 +56,8 @@ void main(void)
         1 - point.z / gridMapResolution / gridMapSize.y * 2  //set the origin on the bottom and flip upside down
     );
 
-    //gl_Position = vec4(plane, 0.0, 1.0);
+    gl_Position = vec4(plane, 0.0, 1.0);
     height = point.y;
-
-    //test
-    gl_Position = vec4(
-        (position.x / depthSize.x - 0.5) * 2, 
-        (position.y / depthSize.y - 0.5) * 2, 
-        0, 
-        1);
 
     //Calculate coordinate in color image
     vec4 colorPoint = depthToColor * vec4(point, 1);

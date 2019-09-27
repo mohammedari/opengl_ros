@@ -24,6 +24,19 @@ public:
         const std::string& vertexShader, const std::string& fragmentShader);
     ~DepthImageProjector();
 
+    void uniform(const std::string& name, float v1);
+    void uniform(const std::string& name, float v1, float v2);
+    void uniform(const std::string& name, float v1, float v2, float v3);
+    void uniform(const std::string& name, float v1, float v2, float v3, float v4);
+    void uniform(const std::string& name, int v1);
+    void uniform(const std::string& name, int v1, int v2);
+    void uniform(const std::string& name, int v1, int v2, int v3);
+    void uniform(const std::string& name, int v1, int v2, int v3, int v4);
+    void uniform(const std::string& name, unsigned int v1);
+    void uniform(const std::string& name, unsigned int v1, unsigned int v2);
+    void uniform(const std::string& name, unsigned int v1, unsigned int v2, unsigned int v3);
+    void uniform(const std::string& name, unsigned int v1, unsigned int v2, unsigned int v3, unsigned int v4);
+
     void updateProjectionMatrix(
         const std::array<float, 2> colorFocalLength, const std::array<float, 2> colorCenter, 
         const std::array<float, 2> depthFocalLength, const std::array<float, 2> depthCenter, 

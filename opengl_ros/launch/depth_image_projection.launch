@@ -2,13 +2,11 @@
 <launch>
   <arg name="depth_width"                  default="1280"/>
   <arg name="depth_height"                 default="720"/>
-  <!-- <arg name="depth_width"                  default="640"/> -->
-  <!-- <arg name="depth_height"                 default="360"/> -->
-  <arg name="grid_map_width"               default="640"/>
-  <arg name="grid_map_height"              default="480"/>
-  <arg name="grid_map_resolution"          default="0.1"/>
+  <arg name="grid_map_width"               default="300"/>
+  <arg name="grid_map_height"              default="300"/>
+  <arg name="grid_map_resolution"          default="0.01"/>
   <arg name="grid_map_layer_height"        default="0.5"/>
-  <arg name="grid_map_accumulation_weight" default="0.004"/> <!-- 1/255 -->
+  <arg name="grid_map_accumulation_weight" default="0.004"/> <!-- 0.004 for 1/255 -->
   <arg name="frame_rate" default="30"/>
 
   <group ns="d435">
@@ -43,19 +41,25 @@
     <param name="colorHeight"               value="$(arg depth_height)"/>
     <param name="depthWidth"                value="$(arg depth_width)"/>
     <param name="depthHeight"               value="$(arg depth_height)"/>
+
     <param name="gridMapWidth"              value="$(arg grid_map_width)"/>
     <param name="gridMapHeight"             value="$(arg grid_map_height)"/>
     <param name="gridMapResolution"         value="$(arg grid_map_resolution)"/>
     <param name="gridMapLayerHeight"        value="$(arg grid_map_layer_height)"/>
     <param name="gridMapAccumulationWeight" value="$(arg grid_map_accumulation_weight)"/>
+
+    <param name="threshold_l"               value="0"/>
+    <param name="svm_coef_a"                value="0.266602955271"/>
+    <param name="svm_coef_b"                value="0.0444656815907"/>
+    <param name="svm_intercept"             value="-44.3271851592"/>
+
     <param name="vertex_shader"             value="$(find opengl_ros_lib)/shader/vs_depth_image_projection.glsl"/>
     <param name="fragment_shader"           value="$(find opengl_ros_lib)/shader/fs_depth_image_projection.glsl"/>
 
     <remap from="~depth_to_color" to="/d435/extrinsics/depth_to_color"/>
-
-    <remap from="color_in"       to="/d435/color/image_raw"/>
-    <remap from="depth_in"       to="/d435/depth/image_rect_raw"/>
-    <remap from="image_out"      to="/occupancy_grid_image"/>
+    <remap from="color_in"        to="/d435/color/image_raw"/>
+    <remap from="depth_in"        to="/d435/depth/image_rect_raw"/>
+    <remap from="image_out"       to="/occupancy_grid_image"/>
   </node>
 
   <node pkg="image_view" type="image_view" name="viewer_depth">
