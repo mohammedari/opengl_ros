@@ -1,15 +1,19 @@
 <?xml version="1.0"?>
 <launch>
-  <arg name="depth_width"                  default="1280"/>
-  <arg name="depth_height"                 default="720"/>
-  <arg name="grid_map_width"               default="300"/>
-  <arg name="grid_map_height"              default="300"/>
-  <arg name="grid_map_resolution"          default="0.01"/>
-  <arg name="grid_map_layer_height"        default="0.5"/>
+  <arg name="bag_prefix"                   default="/mnt/log/d435"/>
+  <arg name="depth_width"                  default="640"/>
+  <arg name="depth_height"                 default="360"/>
+  <arg name="grid_map_width"               default="200"/>
+  <arg name="grid_map_height"              default="200"/>
+  <arg name="grid_map_resolution"          default="0.025"/>
+  <arg name="grid_map_layer_height"        default="1.0"/>
   <arg name="grid_map_accumulation_weight" default="0.004"/> <!-- 0.004 for 1/255 -->
-  <arg name="frame_rate" default="30"/>
+  <arg name="frame_rate"                   default="30"/>
 
-  <group ns="d435">
+  <arg name="d435"                         default="true"/>
+  <arg name="record"                       default="true"/>
+
+  <group ns="d435" if="$(arg d435)">
     <node pkg="nodelet" type="nodelet" name="realsense2_camera_manager" args="manager" output="screen"/>
     <node pkg="nodelet" type="nodelet" name="realsense2_camera" args="load realsense2_camera/RealSenseNodeFactory realsense2_camera_manager">
       <param name="enable_pointcloud"        type="bool" value="false"/>
@@ -73,4 +77,17 @@
   <node pkg="image_view" type="image_view" name="viewer_out">
     <remap from="image" to="/occupancy_grid_image"/>
   </node>
+
+  <node pkg="rosbag" type="record" name="logger" if="$(arg d435)"
+    args="-o $(arg bag_prefix) 
+          --lz4
+          -a
+          -x /(d435|occupancy_grid_image|viewer_depth|viewer_color|viewer_out)/(.*)
+          /d435/color/camera_info
+          /d435/color/image_raw
+          /d435/depth/camera_info
+          /d435/depth/image_rect_raw
+          /d435/extrinsics/depth_to_color
+          /occupancy_grid_image
+    "/>
 </launch>

@@ -112,8 +112,10 @@ void DepthImageProjectorNode::depthCallback(const sensor_msgs::Image::ConstPtr& 
     projector_->project(output_, color, depth);
 
     //Publish
-    cv_bridge::CvImage outImage;;
-    outImage.header = cv_ptr->header;
+    cv_bridge::CvImage outImage;
+    outImage.header.seq      = cv_ptr->header.seq;
+    outImage.header.stamp    = cv_ptr->header.stamp;
+    outImage.header.frame_id = "occupancy_grid"; //TODO set from parameter
     outImage.encoding = sensor_msgs::image_encodings::RGB8;
     outImage.image = output_;
     imagePublisher_.publish(outImage.toImageMsg());

@@ -72,7 +72,7 @@ void main(void)
     //Apply SVM to extract a target
     if (l > threshold_l && svm_coef_a * a + svm_coef_b * b + svm_intercept > 0)
     {
-        fragmentColor = vec3(1.0, 0.0, 0.0) * gridMapAccumulationWeight;
+        fragmentColor = vec3(1.0, 0.0, 0.0) * gridMapAccumulationWeight * 3; //TODO set from parameter
         return;
     }
 
