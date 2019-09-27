@@ -19,16 +19,19 @@ in vec3 position; //This input position is integer pixel coordinate in the optic
                   //y = 0 to (depthSize.y - 1)
                   //z = 0
 
-out vec2 colorUV; //The UV coordinate of corresponding pixel in the color image 
+out vec2 colorUV; //The UV coordinate of corresponding pixel in the color image.
                   //x = 0 to 1
                   //y = 0 to 1
+
+out float height; //The height of the point, which is 0 if the point is at the middle of the image.
 
 void main(void)
 {
     //Sampling depth from the texture
+    //XY coordinate and texture UV mathes in OpenGL 
     ivec2 depthUV = ivec2(
         position.x,
-        depthSize.y - position.y
+        position.y
     );
     float depth = texelFetch(depthTexture, depthUV, 0).x * depthUnit; //convert to meter scale
 
@@ -48,13 +51,20 @@ void main(void)
     //TODO rotate the point along with camera pose
 
     //Projecting the point to the occupancy grid plane
-    vec3 plane = vec3(
+    vec2 plane = vec2(
         point.x / gridMapResolution / gridMapSize.x * 2,     //convert to -1 to 1
-        1 - point.z / gridMapResolution / gridMapSize.y * 2, //set the origin on the bottom and flip upside down
-        point.y
+        1 - point.z / gridMapResolution / gridMapSize.y * 2  //set the origin on the bottom and flip upside down
     );
 
-    gl_Position = vec4(plane, 1.0);
+    //gl_Position = vec4(plane, 0.0, 1.0);
+    height = point.y;
+
+    //test
+    gl_Position = vec4(
+        (position.x / depthSize.x - 0.5) * 2, 
+        (position.y / depthSize.y - 0.5) * 2, 
+        0, 
+        1);
 
     //Calculate coordinate in color image
     vec4 colorPoint = depthToColor * vec4(point, 1);

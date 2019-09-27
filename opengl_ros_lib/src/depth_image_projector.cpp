@@ -69,7 +69,7 @@ DepthImageProjector::Impl::Impl(
     vbo_(verticies_, GL_STATIC_DRAW), 
     colorIn_(GL_SRGB8, colorWidth_, colorHeight_),  
     depthIn_(GL_R16UI, depthWidth_, depthHeight_),  
-    textureOut_(GL_RGB8, gridMapWidth, gridMapHeight),
+    textureOut_(GL_SRGB8, gridMapWidth, gridMapHeight), //TODO fix to RGB
     colorSampler_(GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE),
     depthSampler_(GL_NEAREST, GL_NEAREST, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE),
     fbo_(textureOut_)
@@ -90,7 +90,7 @@ DepthImageProjector::Impl::Impl(
     vao_.mapVariable(vbo_, glGetAttribLocation(program_.get(), "position"), 3, GL_FLOAT, 0);
 
     //Enable blending
-    glEnable(GL_BLEND);
+    //glEnable(GL_BLEND);
     glBlendFunc(GL_ONE, GL_ONE);
     glBlendEquation(GL_FUNC_ADD);
 }

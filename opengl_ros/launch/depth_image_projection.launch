@@ -2,8 +2,8 @@
 <launch>
   <arg name="depth_width"                  default="640"/>
   <arg name="depth_height"                 default="360"/>
-  <arg name="grid_map_width"               default="100"/>
-  <arg name="grid_map_height"              default="100"/>
+  <arg name="grid_map_width"               default="640"/>
+  <arg name="grid_map_height"              default="480"/>
   <arg name="grid_map_resolution"          default="0.1"/>
   <arg name="grid_map_layer_height"        default="0.5"/>
   <arg name="grid_map_accumulation_weight" default="0.004"/> <!-- 1/255 -->
@@ -37,6 +37,8 @@
 
   <node pkg="opengl_ros" type="depth_image_projector"
     name="depth_image_projector" output="screen">
+    <param name="colorWidth"                value="$(arg depth_width)"/>
+    <param name="colorHeight"               value="$(arg depth_height)"/>
     <param name="depthWidth"                value="$(arg depth_width)"/>
     <param name="depthHeight"               value="$(arg depth_height)"/>
     <param name="gridMapWidth"              value="$(arg grid_map_width)"/>
