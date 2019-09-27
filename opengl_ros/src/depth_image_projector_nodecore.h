@@ -1,10 +1,12 @@
 #ifndef DEPTH_IMAGE_PROJECTOR_NODECORE_H
 #define DEPTH_IMAGE_PROJECTOR_NODECORE_H
 
+#include <array>
 #include <memory>
 
 #include <ros/ros.h>
 #include <sensor_msgs/Image.h>
+#include <realsense2_camera/Extrinsics.h>
 #include <image_transport/image_transport.h>
 #include <cv_bridge/cv_bridge.h>
 
@@ -20,9 +22,9 @@ class DepthImageProjectorNode
 
     //Publishers and Subscribers
     image_transport::Publisher imagePublisher_;
-
     image_transport::CameraSubscriber colorSubscriber_;
     image_transport::CameraSubscriber depthSubscriber_;
+    ros::Subscriber depthToColorSubscriber_;
     
     //Other members
     std::unique_ptr<cgs::DepthImageProjector> projector_;
@@ -32,6 +34,9 @@ class DepthImageProjectorNode
     sensor_msgs::CameraInfoConstPtr latestColorCameraInfoPtr;
     void colorCallback(const sensor_msgs::Image::ConstPtr& imageMsg, const sensor_msgs::CameraInfoConstPtr & cameraInfoMsg);
     void depthCallback(const sensor_msgs::Image::ConstPtr& imageMsg, const sensor_msgs::CameraInfoConstPtr & cameraInfoMsg);
+    bool depthToColorArrived_ = false;
+    std::array<float, 16> latestDepthToColor_;
+    void depthToColorCallback(const realsense2_camera::Extrinsics::ConstPtr& depthToColorMsg);
 
 public:
     DepthImageProjectorNode(const ros::NodeHandle& nh, const ros::NodeHandle& nh_private);

@@ -14,6 +14,7 @@ find_package(catkin REQUIRED COMPONENTS
   image_transport
   cv_bridge
   opengl_ros_lib
+  realsense2_camera
 )
 
 ## System dependencies are found with CMake's conventions

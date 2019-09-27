@@ -41,6 +41,10 @@ struct DepthImageProjector::Impl
         float gridMapLayerHeight, float gridMapAccumulationWeight,
         const std::string& vertexShader, const std::string& fragmentShader);
 
+    void updateProjectionMatrix(
+        const std::array<float, 2> colorFocalLength, const std::array<float, 2> colorCenter, 
+        const std::array<float, 2> depthFocalLength, const std::array<float, 2> depthCenter, 
+        const std::array<float, 16> depthToColor);
     void project(cv::Mat& dest, const cv::Mat& color, const cv::Mat& depth);
 };
 
@@ -70,7 +74,7 @@ DepthImageProjector::Impl::Impl(
     colorIn_(GL_SRGB8, colorWidth_, colorHeight_),  
     depthIn_(GL_R16UI, depthWidth_, depthHeight_),  
     textureOut_(GL_SRGB8, gridMapWidth, gridMapHeight), //TODO fix to RGB
-    colorSampler_(GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE),
+    colorSampler_(GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_BORDER, GL_CLAMP_TO_BORDER),
     depthSampler_(GL_NEAREST, GL_NEAREST, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE),
     fbo_(textureOut_)
 {
@@ -93,6 +97,35 @@ DepthImageProjector::Impl::Impl(
     //glEnable(GL_BLEND);
     glBlendFunc(GL_ONE, GL_ONE);
     glBlendEquation(GL_FUNC_ADD);
+}
+
+void DepthImageProjector::Impl::updateProjectionMatrix(
+    const std::array<float, 2> colorFocalLength, const std::array<float, 2> colorCenter, 
+    const std::array<float, 2> depthFocalLength, const std::array<float, 2> depthCenter, 
+    const std::array<float, 16> depthToColor)
+{
+    glUniform2fv(glGetUniformLocation(program_.get(), "colorFocalLength")  , 1, colorFocalLength.data());
+    glUniform2fv(glGetUniformLocation(program_.get(), "colorCenter")       , 1, colorCenter.data());
+    glUniform2fv(glGetUniformLocation(program_.get(), "depthFocalLength")  , 1, depthFocalLength.data());
+    glUniform2fv(glGetUniformLocation(program_.get(), "depthCenter")       , 1, depthCenter.data());
+    glUniformMatrix4fv(glGetUniformLocation(program_.get(), "depthToColor"), 1, false, depthToColor.data());
+
+    ////TODO update projection matrix
+    //glUniform2f(glGetUniformLocation(program_.get(), "depthFocalLength"), 323.7779846191406, 323.7779846191406);
+    //glUniform2f(glGetUniformLocation(program_.get(), "depthCenter"), 322.2593078613281, 182.6495361328125);
+    //glUniform2f(glGetUniformLocation(program_.get(), "colorFocalLength"), 463.1402587890625, 463.0929870605469);
+    //glUniform2f(glGetUniformLocation(program_.get(), "colorCenter"), 320.7187194824219, 176.80926513671875);
+
+    ////extrinsics matrix in column major order
+    ////TODO update the matrix using depth_to_color message
+    ////Note that the rotation variable in the message is column major order
+    //std::array<float, 16> depthToColorT = {
+    //    0.9999825954437256  , 0.0040609221905469894 , -0.004279938992112875 , 0, 
+    //    -0.00407175999134779, 0.9999884963035583    , -0.0025265226140618324, 0, 
+    //    0.004269629716873169, 0.0025439055170863867 , 0.9999876618385315    , 0, 
+    //    0.014667361974716187, 0.00030949467327445745, 0.0012093170080333948 , 1,
+    //};
+    //glUniformMatrix4fv(glGetUniformLocation(program_.get(), "depthToColor"), 1, false, depthToColorT.data());
 }
 
 void DepthImageProjector::Impl::project(cv::Mat& dest, const cv::Mat& color, const cv::Mat& depth) //TODO add projection matrix argument
@@ -132,23 +165,6 @@ void DepthImageProjector::Impl::project(cv::Mat& dest, const cv::Mat& color, con
             "type:      texture=" << CV_8UC3      << ", input=" << color.type());
         return;
     }
-
-    //TODO update projection matrix
-    glUniform2f(glGetUniformLocation(program_.get(), "depthFocalLength"), 323.7779846191406, 323.7779846191406);
-    glUniform2f(glGetUniformLocation(program_.get(), "depthCenter"), 322.2593078613281, 182.6495361328125);
-    glUniform2f(glGetUniformLocation(program_.get(), "colorFocalLength"), 463.1402587890625, 463.0929870605469);
-    glUniform2f(glGetUniformLocation(program_.get(), "colorCenter"), 320.7187194824219, 176.80926513671875);
-
-    //extrinsics matrix in column major order
-    //TODO update the matrix using depth_to_color message
-    //Note that the rotation variable in the message is column major order
-    std::array<float, 16> depthToColorT = {
-        0.9999825954437256  , 0.0040609221905469894 , -0.004279938992112875 , 0, 
-        -0.00407175999134779, 0.9999884963035583    , -0.0025265226140618324, 0, 
-        0.004269629716873169, 0.0025439055170863867 , 0.9999876618385315    , 0, 
-        0.014667361974716187, 0.00030949467327445745, 0.0012093170080333948 , 1,
-    };
-    glUniformMatrix4fv(glGetUniformLocation(program_.get(), "depthToColor"), 1, false, depthToColorT.data());
 
     //Perform rendering
     colorIn_.write(GL_RGB, GL_UNSIGNED_BYTE, color.data);
@@ -200,6 +216,18 @@ catch (cgs::gl::Exception& e)
 }
 
 DepthImageProjector::~DepthImageProjector() = default;
+
+
+void DepthImageProjector::updateProjectionMatrix(
+    const std::array<float, 2> colorFocalLength, const std::array<float, 2> colorCenter, 
+    const std::array<float, 2> depthFocalLength, const std::array<float, 2> depthCenter, 
+    const std::array<float, 16> depthToColor)
+{
+    impl_->updateProjectionMatrix(
+        colorFocalLength, colorCenter, 
+        depthFocalLength, depthCenter, 
+        depthToColor);
+}
 
 void DepthImageProjector::project(cv::Mat& dest, const cv::Mat& color, const cv::Mat& depth)
 {

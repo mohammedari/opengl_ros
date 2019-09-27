@@ -13,6 +13,9 @@ DepthImageProjectorNode::DepthImageProjectorNode(const ros::NodeHandle& nh, cons
     colorSubscriber_ = it_.subscribeCamera("color_in" , 1, &DepthImageProjectorNode::colorCallback, this);
     depthSubscriber_ = it_.subscribeCamera("depth_in" , 1, &DepthImageProjectorNode::depthCallback, this);
 
+    //TODO change to use TF and remove dependency on realsense2_camera package
+    depthToColorSubscriber_ = nh_.subscribe<realsense2_camera::Extrinsics>("depth_to_color" , 1, &DepthImageProjectorNode::depthToColorCallback, this);
+
     int colorWidth, colorHeight;
     nh_.param<int>("colorWidth" , colorWidth , 640);
     nh_.param<int>("colorHeight", colorHeight, 360);
@@ -77,8 +80,22 @@ void DepthImageProjectorNode::depthCallback(const sensor_msgs::Image::ConstPtr& 
         return;
     }
 
-    //TODO update projector parameters with camera info
+    if (!depthToColorArrived_)
+    {
+        ROS_WARN_STREAM("extrinsics parameter not arrivied yet");
+        return;
+    }
 
+    //Update projector parameters with camera info
+    projector_->updateProjectionMatrix(
+        {static_cast<float>(latestColorCameraInfoPtr->K[0]), static_cast<float>(latestColorCameraInfoPtr->K[4])}, 
+        {static_cast<float>(latestColorCameraInfoPtr->K[2]), static_cast<float>(latestColorCameraInfoPtr->K[5])}, 
+        {static_cast<float>(cameraInfoMsg->K[0])           , static_cast<float>(cameraInfoMsg->K[4])}, 
+        {static_cast<float>(cameraInfoMsg->K[2])           , static_cast<float>(cameraInfoMsg->K[5])}, 
+        latestDepthToColor_
+    );
+
+    //Perform projection
     const auto& color = latestColorImagePtr->image;
     const auto& depth = cv_ptr->image;
     projector_->project(output_, color, depth);
@@ -89,6 +106,20 @@ void DepthImageProjectorNode::depthCallback(const sensor_msgs::Image::ConstPtr& 
     outImage.encoding = sensor_msgs::image_encodings::RGB8;
     outImage.image = output_;
     imagePublisher_.publish(outImage.toImageMsg());
+}
+
+void DepthImageProjectorNode::depthToColorCallback(const realsense2_camera::Extrinsics::ConstPtr& depthToColorMsg)
+{
+    auto& r = depthToColorMsg->rotation;
+    auto& t = depthToColorMsg->translation;
+    latestDepthToColor_ = {
+        static_cast<float>(r[0]), static_cast<float>(r[1]), static_cast<float>(r[2]), 0, 
+        static_cast<float>(r[3]), static_cast<float>(r[4]), static_cast<float>(r[5]), 0, 
+        static_cast<float>(r[6]), static_cast<float>(r[7]), static_cast<float>(r[8]), 0, 
+        static_cast<float>(t[0]), static_cast<float>(t[1]), static_cast<float>(t[2]), 1,
+    }; //column major order
+
+    depthToColorArrived_ = true;
 }
 
 void DepthImageProjectorNode::run()

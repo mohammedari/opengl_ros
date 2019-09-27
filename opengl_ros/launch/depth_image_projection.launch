@@ -1,7 +1,9 @@
 <?xml version="1.0"?>
 <launch>
-  <arg name="depth_width"                  default="640"/>
-  <arg name="depth_height"                 default="360"/>
+  <arg name="depth_width"                  default="1280"/>
+  <arg name="depth_height"                 default="720"/>
+  <!-- <arg name="depth_width"                  default="640"/> -->
+  <!-- <arg name="depth_height"                 default="360"/> -->
   <arg name="grid_map_width"               default="640"/>
   <arg name="grid_map_height"              default="480"/>
   <arg name="grid_map_resolution"          default="0.1"/>
@@ -49,9 +51,11 @@
     <param name="vertex_shader"             value="$(find opengl_ros_lib)/shader/vs_depth_image_projection.glsl"/>
     <param name="fragment_shader"           value="$(find opengl_ros_lib)/shader/fs_depth_image_projection.glsl"/>
 
-    <remap from="color_in"  to="/d435/color/image_raw"/>
-    <remap from="depth_in"  to="/d435/depth/image_rect_raw"/>
-    <remap from="image_out" to="/occupancy_grid_image"/>
+    <remap from="~depth_to_color" to="/d435/extrinsics/depth_to_color"/>
+
+    <remap from="color_in"       to="/d435/color/image_raw"/>
+    <remap from="depth_in"       to="/d435/depth/image_rect_raw"/>
+    <remap from="image_out"      to="/occupancy_grid_image"/>
   </node>
 
   <node pkg="image_view" type="image_view" name="viewer_depth">
