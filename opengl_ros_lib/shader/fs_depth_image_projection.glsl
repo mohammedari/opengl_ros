@@ -9,11 +9,17 @@ uniform float svm_coef_a;
 uniform float svm_coef_b;
 uniform float svm_intercept;
 
-in vec2 colorUV; //The UV coordinate of corresponding pixel in the color image 
-                 //x = 0 to 1
-                 //y = 0 to 1
+out vec4 position; //The vertex coordinate of the point in grid map space.
+                   //x = -1 to 1; which represents left to right
+                   //y = -1 to 1; which represents far to near, flipped upside down
+                   //z = 0; TODO this value should represents the height
+                   //w = 0
 
-in float height; //The height of the point, which is 0 if the point is at the middle of the image.
+in vec2 colorUV;   //The UV coordinate of corresponding pixel in the color image 
+                   //x = 0 to 1
+                   //y = 0 to 1
+
+in float height;   //The height of the point, which is 0 if the point is at the middle of the image.
 
 out vec3 fragmentColor;
 

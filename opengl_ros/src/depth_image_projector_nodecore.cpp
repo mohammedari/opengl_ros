@@ -32,15 +32,16 @@ DepthImageProjectorNode::DepthImageProjectorNode(const ros::NodeHandle& nh, cons
     nh_.param<double>("gridMapAccumulationWeight", gridMapAccumulationWeight, 1);
 
     std::string vertexShader, fragmentShader;
-    nh_.param<std::string>("vertex_shader"  , vertexShader  , "");
-    nh_.param<std::string>("fragment_shader", fragmentShader, "");
+    nh_.param<std::string>("vertex_shader"   , vertexShader  , "");
+    nh_.param<std::string>("geometry_shader" , geometryShader, "");
+    nh_.param<std::string>("fragment_shader" , fragmentShader, "");
 
     projector_ = std::make_unique<cgs::DepthImageProjector>(
         colorWidth, colorHeight, 
         depthWidth, depthHeight, 
         gridMapWidth, gridMapHeight, gridMapResolution, gridMapLayerHeight,
         gridMapAccumulationWeight,
-        vertexShader, fragmentShader
+        vertexShader, geometryShader, fragmentShader
     );
 
     float threshold_l, svm_coef_a, svm_coef_b, svm_intercept;

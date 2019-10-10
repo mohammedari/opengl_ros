@@ -6,12 +6,12 @@
   <arg name="grid_map_width"               default="200"/>
   <arg name="grid_map_height"              default="200"/>
   <arg name="grid_map_resolution"          default="0.025"/>
-  <arg name="grid_map_layer_height"        default="1.0"/>
+  <arg name="grid_map_layer_height"        default="0.5"/>
   <arg name="grid_map_accumulation_weight" default="0.004"/> <!-- 0.004 for 1/255 -->
   <arg name="frame_rate"                   default="30"/>
 
   <arg name="d435"                         default="true"/>
-  <arg name="record"                       default="true"/>
+  <arg name="record"                       default="false"/>
 
   <group ns="d435" if="$(arg d435)">
     <node pkg="nodelet" type="nodelet" name="realsense2_camera_manager" args="manager" output="screen"/>
@@ -58,6 +58,7 @@
     <param name="svm_intercept"             value="-44.3271851592"/>
 
     <param name="vertex_shader"             value="$(find opengl_ros_lib)/shader/vs_depth_image_projection.glsl"/>
+    <param name="geometry_shader"           value="$(find opengl_ros_lib)/shader/gs_depth_image_projection.glsl"/>
     <param name="fragment_shader"           value="$(find opengl_ros_lib)/shader/fs_depth_image_projection.glsl"/>
 
     <remap from="~depth_to_color" to="/d435/extrinsics/depth_to_color"/>
