@@ -39,7 +39,7 @@ struct DepthImageProjector::Impl
         int depthWidth, int depthHeight,
         int gridMapWidth, int gridMapHeight, float gridMapResolution, 
         float gridMapLayerHeight, float gridMapAccumulationWeight,
-        const std::string& vertexShader, const std::string& fragmentShader);
+        const std::string& vertexShader, const std::string& geometryShader, const std::string& fragmentShader);
 
     void updateProjectionMatrix(
         const std::array<float, 2> colorFocalLength, const std::array<float, 2> colorCenter, 
@@ -53,13 +53,14 @@ DepthImageProjector::Impl::Impl(
     int depthWidth, int depthHeight, 
     int gridMapWidth, int gridMapHeight, float gridMapResolution, 
     float gridMapLayerHeight, float gridMapAccumulationWeight,
-    const std::string& vertexShader, const std::string& fragmentShader) : 
+    const std::string& vertexShader, const std::string& geometryShader, const std::string& fragmentShader) : 
     context_(true),
     colorWidth_(colorWidth), colorHeight_(colorHeight), 
     depthWidth_(depthWidth), depthHeight_(depthHeight), 
     gridMapWidth_(gridMapWidth), gridMapHeight_(gridMapHeight), 
     shaders_({
         cgs::gl::Shader(GL_VERTEX_SHADER,   vertexShader),
+        cgs::gl::Shader(GL_GEOMETRY_SHADER, ""), //TODO
         cgs::gl::Shader(GL_FRAGMENT_SHADER, fragmentShader),
     }), 
     program_(shaders_), 
@@ -91,7 +92,7 @@ DepthImageProjector::Impl::Impl(
     glUniform1f(glGetUniformLocation(program_.get(), "gridMapAccumulationWeight"), gridMapAccumulationWeight);
 
     //Verticies setup
-    vao_.mapVariable(vbo_, glGetAttribLocation(program_.get(), "position"), 3, GL_FLOAT, 0);
+    vao_.mapVariable(vbo_, glGetAttribLocation(program_.get(), "input_pixel"), 3, GL_FLOAT, 0);
 
     //Enable blending
     glEnable(GL_BLEND);
@@ -111,7 +112,7 @@ void DepthImageProjector::Impl::updateProjectionMatrix(
     glUniformMatrix4fv(glGetUniformLocation(program_.get(), "depthToColor"), 1, false, depthToColor.data());
 }
 
-void DepthImageProjector::Impl::project(cv::Mat& dest, const cv::Mat& color, const cv::Mat& depth) //TODO add projection matrix argument
+void DepthImageProjector::Impl::project(cv::Mat& dest, const cv::Mat& color, const cv::Mat& depth)
 {
     if (gridMapWidth_ != dest.cols || gridMapHeight_ != dest.rows || CV_8UC3 != dest.type())
     {
@@ -177,14 +178,14 @@ DepthImageProjector::DepthImageProjector(
     int depthWidth, int depthHeight, 
     int gridMapWidth, int gridMapHeight, float gridMapResolution, 
     float gridMapLayerHeight, float gridMapAccumulationWeight, 
-    const std::string& vertexShader, const std::string& fragmentShader)
+    const std::string& vertexShader, const std::string& geometryShader, const std::string& fragmentShader)
 try
     : impl_(std::make_unique<DepthImageProjector::Impl>(
         colorWidth, colorHeight, 
         depthWidth, depthHeight, 
         gridMapWidth, gridMapHeight, gridMapResolution, 
         gridMapLayerHeight, gridMapAccumulationWeight, 
-        vertexShader, fragmentShader))
+        vertexShader, geometryShader, fragmentShader))
 {
 }
 catch (cgs::egl::Exception& e)

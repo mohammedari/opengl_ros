@@ -21,7 +21,7 @@ public:
         int depthWidth, int depthHeight, 
         int gridMapWidth, int gridMapHeight, float gridMapResolution, 
         float gridMapLayerHeight, float gridMapAccumulationWeight,
-        const std::string& vertexShader, const std::string& fragmentShader);
+        const std::string& vertexShader, const std::string& geometryShader, const std::string& fragmentShader);
     ~DepthImageProjector();
 
     void uniform(const std::string& name, float v1);
