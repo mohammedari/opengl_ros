@@ -27,6 +27,10 @@ out float height; //The height of the point, which is 0 if the point is at the m
 
 void main(void)
 {
+    //TODO set by uniform variable
+    //The values in the image from D435 is not range value.
+    const bool rangeValueInDepthImage = false;
+
     //Sampling depth from the texture
     //XY coordinate and texture UV mathes in OpenGL 
     ivec2 depthUV = ivec2(
@@ -45,7 +49,11 @@ void main(void)
     //-> (px/pz)^2 + (py/pz)^2 + 1 = (depth/pz)^2
     //-> pz^2 = (depth)^2 / ((px/pz)^2 + (py/pz)^2 + 1)
     vec2  pxy_z  = (position.xy - depthCenter.xy) / depthFocalLength.xy;
-    float pz     = sqrt(depth * depth / (length(pxy_z) + 1));
+    float pz;
+    if (rangeValueInDepthImage)
+        pz = sqrt(depth * depth / (length(pxy_z) + 1));
+    else
+        pz = depth;
     vec3  point  = vec3(pxy_z * pz, pz);
 
     //TODO rotate the point along with camera pose
