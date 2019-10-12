@@ -26,7 +26,7 @@ struct DepthImageProjector::Impl
     const int depthWidth_, depthHeight_;
     const int gridMapWidth_, gridMapHeight_;
 
-    std::array<cgs::gl::Shader, 2> shaders_;
+    std::array<cgs::gl::Shader, 3> shaders_;
     cgs::gl::Program program_;
     std::vector<Vertex> verticies_;
     cgs::gl::VertexBuffer<Vertex> vbo_;

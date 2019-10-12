@@ -31,7 +31,7 @@ DepthImageProjectorNode::DepthImageProjectorNode(const ros::NodeHandle& nh, cons
     nh_.param<double>("gridMapLayerHeight", gridMapLayerHeight, 1);
     nh_.param<double>("gridMapAccumulationWeight", gridMapAccumulationWeight, 1);
 
-    std::string vertexShader, fragmentShader;
+    std::string vertexShader, geometryShader, fragmentShader;
     nh_.param<std::string>("vertex_shader"   , vertexShader  , "");
     nh_.param<std::string>("geometry_shader" , geometryShader, "");
     nh_.param<std::string>("fragment_shader" , fragmentShader, "");
