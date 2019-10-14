@@ -39,7 +39,11 @@ public:
         shader_ = glCreateShader(type);
 
         if (!shader_)
-            throw Exception("Failed to create shader.");
+        {
+            std::stringstream ss;
+            ss << "Failed to create shader \"" << filename << "\".";
+            handleError(ss.str());
+        }
 
         auto temp = source.c_str();
         glShaderSource(shader_, 1, &temp, nullptr);
@@ -54,7 +58,7 @@ public:
             glDeleteShader(shader_);
 
             std::stringstream ss;
-            ss << "Failed to compile shader. " << log.data();
+            ss << "Failed to compile shader \"" << filename << "\". " << log.data();
             handleError(ss.str());
         }
     }

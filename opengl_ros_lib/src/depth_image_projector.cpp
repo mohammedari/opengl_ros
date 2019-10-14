@@ -60,7 +60,7 @@ DepthImageProjector::Impl::Impl(
     gridMapWidth_(gridMapWidth), gridMapHeight_(gridMapHeight), 
     shaders_({
         cgs::gl::Shader(GL_VERTEX_SHADER,   vertexShader),
-        cgs::gl::Shader(GL_GEOMETRY_SHADER, ""), //TODO
+        cgs::gl::Shader(GL_GEOMETRY_SHADER, geometryShader), 
         cgs::gl::Shader(GL_FRAGMENT_SHADER, fragmentShader),
     }), 
     program_(shaders_), 

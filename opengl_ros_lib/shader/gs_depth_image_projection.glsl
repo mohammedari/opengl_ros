@@ -1,31 +1,30 @@
 #version 450 core
 
 layout(points) in;
-layout(lines, 2) out;
+layout(line_strip, max_vertices = 2) out;
 
-in input_vertex
+in vertex
 {
     vec4  position;
     vec2  colorUV;
     float height;
-} input[1];
+} input_vertices[1];
 
-out vec4  position;
 out vec2  colorUV;
 out float height;
 
 void main(void)
 {
-    const vec2 lineOrigin = vec2(0, 1, 0, 1); //Top center of the image
+    const vec4 lineOrigin = vec4(0, 1, 0, 1); //Top center of the image
 
-    position = lineOrigin;
-    colorUV  = gl_in[0].colorUV;
-    height   = gl_in[0].height;
+    gl_Position = lineOrigin;
+    colorUV  = input_vertices[0].colorUV;
+    height   = input_vertices[0].height;
     EmitVertex();
 
-    position = gl_in[0].position;
-    colorUV  = gl_in[0].colorUV;
-    height   = gl_in[0].height;
+    gl_Position = input_vertices[0].position; 
+    colorUV  = input_vertices[0].colorUV;
+    height   = input_vertices[0].height;
     EmitVertex();
 
     EndPrimitive();

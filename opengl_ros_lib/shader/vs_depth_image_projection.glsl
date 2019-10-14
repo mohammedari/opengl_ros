@@ -19,18 +19,21 @@ in vec3 input_pixel; //This input position is integer pixel coordinate in the op
                      //y = 0 to (depthSize.y - 1)
                      //z = 0
 
-out vec4 position;   //The vertex coordinate of the point in grid map space.
+out vertex
+{
+    vec4 position;   //The vertex coordinate of the point in grid map space.
                      //x = -1 to 1; which represents left to right
                      //y = -1 to 1; which represents far to near, flipped upside down
                      //z = 0; TODO this value should represents the height
-                     //w = 0
+                     //w = 1
 
-out vec2 colorUV;    //The UV coordinate of corresponding pixel in the color image.
+    vec2 colorUV;    //The UV coordinate of corresponding pixel in the color image.
                      //x = 0 to 1
                      //y = 0 to 1
 
-out float height;    //The height of the point, which is 0 if the point is at the middle of the image.
+    float height;    //The height of the point, which is 0 if the point is at the middle of the image.
                      //TODO should be removed and use position.z instead
+} output_vertex;
 
 void main(void)
 {
@@ -72,8 +75,8 @@ void main(void)
     );
 
     //Ouptut vertex coordinate
-    position = vec4(plane, 0.0, 1.0);
-    height = point.y;
+    output_vertex.position = vec4(plane, 0.0, 1.0);
+    output_vertex.height = point.y;
 
     //Calculate coordinate in color image
     vec4 colorPoint = depthToColor * vec4(point, 1);
@@ -86,7 +89,7 @@ void main(void)
     vec3 colorImagePoint = colorProjection * colorPoint.xyz;
 
     //Output texture coordinate
-    colorUV = vec2(
+    output_vertex.colorUV = vec2(
         colorImagePoint.x / colorImagePoint.z / colorSize.x, 
         colorImagePoint.y / colorImagePoint.z / colorSize.y
     );
