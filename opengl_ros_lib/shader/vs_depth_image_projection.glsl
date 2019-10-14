@@ -59,11 +59,15 @@ void main(void)
     //-> (px/pz)^2 + (py/pz)^2 + 1 = (depth/pz)^2
     //-> pz^2 = (depth)^2 / ((px/pz)^2 + (py/pz)^2 + 1)
     vec2  pxy_z  = (input_pixel.xy - depthCenter.xy) / depthFocalLength.xy;
+<<<<<<< HEAD
     float pz;
     if (rangeValueInDepthImage)
         pz = sqrt(depth * depth / (length(pxy_z) + 1));
     else
         pz = depth;
+=======
+    float pz     = sqrt(depth * depth / (length(pxy_z) + 1));
+>>>>>>> 6f23150ec3d3a1b9a90fdf8dd4f8f76339eeba68
     vec3  point  = vec3(pxy_z * pz, pz);
 
     //TODO rotate the point along with camera pose
@@ -75,8 +79,13 @@ void main(void)
     );
 
     //Ouptut vertex coordinate
+<<<<<<< HEAD
     output_vertex.position = vec4(plane, 0.0, 1.0);
     output_vertex.height = point.y;
+=======
+    position = vec4(plane, 0.0, 1.0);
+    height = point.y;
+>>>>>>> 6f23150ec3d3a1b9a90fdf8dd4f8f76339eeba68
 
     //Calculate coordinate in color image
     vec4 colorPoint = depthToColor * vec4(point, 1);
@@ -89,7 +98,11 @@ void main(void)
     vec3 colorImagePoint = colorProjection * colorPoint.xyz;
 
     //Output texture coordinate
+<<<<<<< HEAD
     output_vertex.colorUV = vec2(
+=======
+    colorUV = vec2(
+>>>>>>> 6f23150ec3d3a1b9a90fdf8dd4f8f76339eeba68
         colorImagePoint.x / colorImagePoint.z / colorSize.x, 
         colorImagePoint.y / colorImagePoint.z / colorSize.y
     );
