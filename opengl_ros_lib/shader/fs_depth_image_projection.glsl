@@ -13,8 +13,6 @@ in vec2 colorUV;   //The UV coordinate of corresponding pixel in the color image
                    //x = 0 to 1
                    //y = 0 to 1
 
-in float height;   //The height of the point, which is 0 if the point is at the middle of the image.
-
 out vec3 fragmentColor;
 
 vec3 rgb2xyz(vec3 rgb)
@@ -56,8 +54,10 @@ vec3 xyz2lab(vec3 xyz)
 
 void main(void)
 {
+    //TODO multilayer output based on depth which represents height
+
     //If the height is out of the range, discard the fragment.
-    if (height < -gridMapLayerHeight / 2 || gridMapLayerHeight / 2 < height)
+    if (gl_FragCoord.z < -gridMapLayerHeight / 2 || gridMapLayerHeight / 2 < gl_FragCoord.z)
         discard;
 
     vec3 color = texture2D(colorTexture, colorUV).xyz;

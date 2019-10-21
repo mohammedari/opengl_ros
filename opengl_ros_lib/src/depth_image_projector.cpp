@@ -94,6 +94,10 @@ DepthImageProjector::Impl::Impl(
     //Verticies setup
     vao_.mapVariable(vbo_, glGetAttribLocation(program_.get(), "input_pixel"), 3, GL_FLOAT, 0);
 
+    //Setup depth value mapping parameter
+    glDepthRange(-gridMapLayerHeight / 2, gridMapLayerHeight / 2);
+    glEnable(GL_DEPTH_CLAMP); //disable depth clipping for processing verticies of all height
+
     //Enable blending
     glEnable(GL_BLEND);
     glBlendFunc(GL_ONE, GL_ONE);

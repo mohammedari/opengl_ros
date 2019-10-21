@@ -7,11 +7,9 @@ in vertex
 {
     vec4  position;
     vec2  colorUV;
-    float height;
 } input_vertices[1];
 
 out vec2  colorUV;
-out float height;
 
 void main(void)
 {
@@ -19,12 +17,10 @@ void main(void)
 
     gl_Position = lineOrigin;
     colorUV  = input_vertices[0].colorUV;
-    height   = input_vertices[0].height;
     EmitVertex();
 
     gl_Position = input_vertices[0].position; 
     colorUV  = input_vertices[0].colorUV;
-    height   = input_vertices[0].height;
     EmitVertex();
 
     EndPrimitive();

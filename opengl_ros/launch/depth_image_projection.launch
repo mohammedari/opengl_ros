@@ -6,7 +6,7 @@
   <arg name="grid_map_width"               default="200"/>
   <arg name="grid_map_height"              default="200"/>
   <arg name="grid_map_resolution"          default="0.025"/>
-  <arg name="grid_map_layer_height"        default="0.5"/>
+  <arg name="grid_map_layer_height"        default="0.3"/>
   <arg name="grid_map_accumulation_weight" default="0.004"/> <!-- 0.004 for 1/255 -->
   <arg name="frame_rate"                   default="30"/>
 

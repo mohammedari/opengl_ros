@@ -11,8 +11,9 @@ uniform vec2 colorCenter;
 
 uniform mat4 depthToColor;
 
+uniform vec2 gridMapSize;
 uniform float gridMapResolution;
-uniform vec2  gridMapSize;
+uniform float gridMapLayerHeight;
 
 in vec3 input_pixel; //This input position is integer pixel coordinate in the optical frame.
                      //x = 0 to (depthSize.x - 1)
@@ -23,16 +24,13 @@ out vertex
 {
     vec4 position;   //The vertex coordinate of the point in grid map space.
                      //x = -1 to 1; which represents left to right
-                     //y = -1 to 1; which represents far to near, flipped upside down
-                     //z = 0; TODO this value should represents the height
+                     //y = -1 to 1; which represents far to near, note this is flipped upside down
+                     //z = -1 to 1; which represents low to high, 
                      //w = 1
 
     vec2 colorUV;    //The UV coordinate of corresponding pixel in the color image.
                      //x = 0 to 1
                      //y = 0 to 1
-
-    float height;    //The height of the point, which is 0 if the point is at the middle of the image.
-                     //TODO should be removed and use position.z instead
 } output_vertex;
 
 void main(void)
@@ -59,33 +57,23 @@ void main(void)
     //-> (px/pz)^2 + (py/pz)^2 + 1 = (depth/pz)^2
     //-> pz^2 = (depth)^2 / ((px/pz)^2 + (py/pz)^2 + 1)
     vec2  pxy_z  = (input_pixel.xy - depthCenter.xy) / depthFocalLength.xy;
-<<<<<<< HEAD
     float pz;
     if (rangeValueInDepthImage)
         pz = sqrt(depth * depth / (length(pxy_z) + 1));
     else
         pz = depth;
-=======
-    float pz     = sqrt(depth * depth / (length(pxy_z) + 1));
->>>>>>> 6f23150ec3d3a1b9a90fdf8dd4f8f76339eeba68
     vec3  point  = vec3(pxy_z * pz, pz);
 
     //TODO rotate the point along with camera pose
 
-    //Projecting the point to the occupancy grid plane
-    vec2 plane = vec2(
-        point.x / gridMapResolution / gridMapSize.x * 2,     //convert to -1 to 1
-        1 - point.z / gridMapResolution / gridMapSize.y * 2  //set the origin on the bottom and flip upside down
-    );
-
     //Ouptut vertex coordinate
-<<<<<<< HEAD
-    output_vertex.position = vec4(plane, 0.0, 1.0);
-    output_vertex.height = point.y;
-=======
-    position = vec4(plane, 0.0, 1.0);
-    height = point.y;
->>>>>>> 6f23150ec3d3a1b9a90fdf8dd4f8f76339eeba68
+    //Projecting the point to the occupancy grid plane, in top down orthognal projection
+    output_vertex.position = vec4(
+        point.x / gridMapResolution / gridMapSize.x * 2,     //convert to -1 to 1
+        1 - point.z / gridMapResolution / gridMapSize.y * 2, //set the origin on the bottom and flip upside down
+        point.y / (gridMapLayerHeight / 2),                  //mapping -height/2 to height/2, to -1 to 1
+        1.0
+    );
 
     //Calculate coordinate in color image
     vec4 colorPoint = depthToColor * vec4(point, 1);
@@ -98,11 +86,7 @@ void main(void)
     vec3 colorImagePoint = colorProjection * colorPoint.xyz;
 
     //Output texture coordinate
-<<<<<<< HEAD
     output_vertex.colorUV = vec2(
-=======
-    colorUV = vec2(
->>>>>>> 6f23150ec3d3a1b9a90fdf8dd4f8f76339eeba68
         colorImagePoint.x / colorImagePoint.z / colorSize.x, 
         colorImagePoint.y / colorImagePoint.z / colorSize.y
     );
