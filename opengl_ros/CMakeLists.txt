@@ -14,6 +14,7 @@ find_package(catkin REQUIRED COMPONENTS
   image_transport
   cv_bridge
   opengl_ros_lib
+  dynamic_reconfigure
 )
 
 ## System dependencies are found with CMake's conventions
@@ -95,7 +96,9 @@ find_package(OpenCV REQUIRED)
 #   cfg/DynReconf1.cfg
 #   cfg/DynReconf2.cfg
 # )
-
+generate_dynamic_reconfigure_options(
+  cfg/opengl_ros.cfg
+)
 ###################################
 ## catkin specific configuration ##
 ###################################

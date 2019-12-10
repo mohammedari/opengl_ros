@@ -6,9 +6,25 @@
 
 using namespace opengl_ros;
 
+void SimpleRendererNode::reconfigure_callback(opengl_ros::opengl_rosConfig &config, uint32_t level) {
+    threshold_l_   = config.threshold_l; 
+    svm_coef_a_    = config.svm_coef_a;  
+    svm_coef_b_    = config.svm_coef_b;  
+    svm_intercept_ = config.svm_intercept;
+
+    renderer_->uniform("threshold_l"  , threshold_l_);
+    renderer_->uniform("svm_coef_a"   , svm_coef_a_);
+    renderer_->uniform("svm_coef_b"   , svm_coef_b_);
+    renderer_->uniform("svm_intercept", svm_intercept_);
+}
+
 SimpleRendererNode::SimpleRendererNode(const ros::NodeHandle& nh, const ros::NodeHandle& nh_private)
     : nh_(nh_private), it_(nh)
 {
+    std::string image_in, image_out;
+    nh_.param<std::string>("image_in"  , image_in  , "");
+    nh_.param<std::string>("image_out" , image_out  , "");
+
     imagePublisher_  = it_.advertise("image_out", 1);
     imageSubscriber_ = it_.subscribe("image_in" , 1, &SimpleRendererNode::imageCallback, this);
 
@@ -24,17 +40,6 @@ SimpleRendererNode::SimpleRendererNode(const ros::NodeHandle& nh, const ros::Nod
         width, height, 
         vertexShader, fragmentShader
     );
-
-    float threshold_l, svm_coef_a, svm_coef_b, svm_intercept;
-    nh_.param<float>("threshold_l"  , threshold_l  , 0);
-    nh_.param<float>("svm_coef_a"   , svm_coef_a   , 0);
-    nh_.param<float>("svm_coef_b"   , svm_coef_b   , 0);
-    nh_.param<float>("svm_intercept", svm_intercept, 0);
-
-    renderer_->uniform("threshold_l"  , threshold_l);
-    renderer_->uniform("svm_coef_a"   , svm_coef_a);
-    renderer_->uniform("svm_coef_b"   , svm_coef_b);
-    renderer_->uniform("svm_intercept", svm_intercept);
 
     output_.create(height, width, CV_8UC3);
 }
@@ -71,5 +76,10 @@ void SimpleRendererNode::imageCallback(const sensor_msgs::Image::ConstPtr& msg)
 
 void SimpleRendererNode::run()
 {
+    dynamic_reconfigure::Server<opengl_ros::opengl_rosConfig> server(ros::NodeHandle("color_extraction_params"));
+    dynamic_reconfigure::Server<opengl_ros::opengl_rosConfig>::CallbackType f;
+    f = boost::bind(boost::mem_fn(&SimpleRendererNode::reconfigure_callback), this, _1, _2);
+    server.setCallback(f);
+
     ros::spin();
 }
