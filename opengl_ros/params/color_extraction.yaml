@@ -1,0 +1,7 @@
+!!python/object/new:dynamic_reconfigure.encoding.Config
+dictitems:
+  threshold_l: 0
+  svm_coef_a: 0.266602955271
+  svm_coef_b: 0.0444656815907
+  svm_intercept: -44.3271851592
+state: []

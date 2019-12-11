@@ -30,6 +30,7 @@ public:
     void uniform(const std::string& name, unsigned int v1, unsigned int v2, unsigned int v3, unsigned int v4);
 
     void render(cv::Mat& dest, const cv::Mat& src);
+    void render(cv::Mat& dest, const cv::Mat& src, const cv::Mat& secondSrc);
 
     SimpleRenderer(const SimpleRenderer&) = delete;
     SimpleRenderer& operator=(const SimpleRenderer&) = delete;
