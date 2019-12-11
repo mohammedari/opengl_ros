@@ -188,8 +188,6 @@ void SimpleRenderer::Impl::render(cv::Mat& dest, const cv::Mat& src)
 
 void SimpleRenderer::Impl::render(cv::Mat& dest, const cv::Mat& src, const cv::Mat& secondSrc)
 {
-    cv::Mat localSrc = src.clone();
-    cv::Mat localSecond = secondSrc.clone();
     checkFormat(secondSrc);
     secondTexture_.write(glFormat_, GL_UNSIGNED_BYTE, secondSrc.data);
     secondTexture_.bindToUnit(1);
