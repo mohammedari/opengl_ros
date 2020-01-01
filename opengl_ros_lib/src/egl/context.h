@@ -23,8 +23,14 @@ public:
             eglBindAPI(EGL_OPENGL_API), 
             "Failed to bind OpenGL API.");
 
-        constexpr std::array<EGLint, 1> configAttributes = {
-            EGL_NONE,
+        constexpr std::array<EGLint, 13> configAttributes = {
+            EGL_SURFACE_TYPE   , EGL_PBUFFER_BIT,
+            EGL_BLUE_SIZE      , 8,
+            EGL_GREEN_SIZE     , 8,
+            EGL_RED_SIZE       , 8,
+            EGL_DEPTH_SIZE     , 8,
+            EGL_RENDERABLE_TYPE, EGL_OPENGL_BIT,
+            EGL_NONE
         };
         EGLConfig config;
         EGLint numConfig;
