@@ -6,9 +6,9 @@
 
 #include <ros/ros.h>
 #include <sensor_msgs/Image.h>
-#include <realsense2_camera/Extrinsics.h>
 #include <image_transport/image_transport.h>
 #include <cv_bridge/cv_bridge.h>
+#include <tf/transform_listener.h>
 
 #include "depth_image_projector.h"
 
@@ -19,6 +19,12 @@ class DepthImageProjectorNode
     //Handles
     ros::NodeHandle nh_;
     image_transport::ImageTransport it_;
+
+    // tf
+    std::string color_frame_id_;
+    std::string depth_frame_id_;
+    tf::TransformListener tfListener_;
+    double tf_wait_duration_;
 
     //Publishers and Subscribers
     image_transport::Publisher imagePublisher_;
@@ -36,7 +42,7 @@ class DepthImageProjectorNode
     void depthCallback(const sensor_msgs::Image::ConstPtr& imageMsg, const sensor_msgs::CameraInfoConstPtr & cameraInfoMsg);
     bool depthToColorArrived_ = false;
     std::array<float, 16> latestDepthToColor_;
-    void depthToColorCallback(const realsense2_camera::Extrinsics::ConstPtr& depthToColorMsg);
+    bool updateDepthToColor();
 
 public:
     DepthImageProjectorNode(const ros::NodeHandle& nh, const ros::NodeHandle& nh_private);

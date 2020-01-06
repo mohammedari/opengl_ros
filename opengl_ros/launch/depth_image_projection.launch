@@ -41,6 +41,10 @@
 
   <node pkg="opengl_ros" type="depth_image_projector"
     name="depth_image_projector" output="screen">
+    <param name="color_frame_id"            value="d435_color_optical"/>
+    <param name="depth_frame_id"            value="d435_depth_optical"/>
+    <param name="tf_wait_duration"          value="0.1"/>
+
     <param name="colorWidth"                value="$(arg depth_width)"/>
     <param name="colorHeight"               value="$(arg depth_height)"/>
     <param name="depthWidth"                value="$(arg depth_width)"/>

@@ -13,8 +13,10 @@ DepthImageProjectorNode::DepthImageProjectorNode(const ros::NodeHandle& nh, cons
     colorSubscriber_ = it_.subscribeCamera("color_in" , 1, &DepthImageProjectorNode::colorCallback, this);
     depthSubscriber_ = it_.subscribeCamera("depth_in" , 1, &DepthImageProjectorNode::depthCallback, this);
 
-    //TODO change to use TF and remove dependency on realsense2_camera package
-    depthToColorSubscriber_ = nh_.subscribe<realsense2_camera::Extrinsics>("depth_to_color" , 1, &DepthImageProjectorNode::depthToColorCallback, this);
+    // frame ids for tf which associates color frame with depth frame
+    nh_.param<std::string>("color_frame_id", color_frame_id_, "d435_color_optical");
+    nh_.param<std::string>("depth_frame_id", depth_frame_id_, "d435_depth_optical");
+    nh_.param<double>("tf_wait_duration", tf_wait_duration_, 0.1);
 
     int colorWidth, colorHeight;
     nh_.param<int>("colorWidth" , colorWidth , 640);
@@ -92,7 +94,9 @@ void DepthImageProjectorNode::depthCallback(const sensor_msgs::Image::ConstPtr& 
         return;
     }
 
-    if (!depthToColorArrived_)
+    // Update & check whether depthToColor is valid.
+    bool is_conversion_valid = updateDepthToColor();
+    if (!is_conversion_valid)
     {
         ROS_WARN_STREAM("extrinsics parameter not arrivied yet");
         return;
@@ -122,18 +126,39 @@ void DepthImageProjectorNode::depthCallback(const sensor_msgs::Image::ConstPtr& 
     imagePublisher_.publish(outImage.toImageMsg());
 }
 
-void DepthImageProjectorNode::depthToColorCallback(const realsense2_camera::Extrinsics::ConstPtr& depthToColorMsg)
+bool DepthImageProjectorNode::updateDepthToColor()
 {
-    auto& r = depthToColorMsg->rotation;
-    auto& t = depthToColorMsg->translation;
-    latestDepthToColor_ = {
-        static_cast<float>(r[0]), static_cast<float>(r[1]), static_cast<float>(r[2]), 0, 
-        static_cast<float>(r[3]), static_cast<float>(r[4]), static_cast<float>(r[5]), 0, 
-        static_cast<float>(r[6]), static_cast<float>(r[7]), static_cast<float>(r[8]), 0, 
-        static_cast<float>(t[0]), static_cast<float>(t[1]), static_cast<float>(t[2]), 1,
-    }; //column major order
+    // Calculation is performed only once since depthToColor does not change.
+    if (depthToColorArrived_)
+    {
+        return true;
+    }
 
-    depthToColorArrived_ = true;
+    try
+    {
+        if (tfListener_.waitForTransform(color_frame_id_, depth_frame_id_, ros::Time(0), ros::Duration(tf_wait_duration_)))
+        {
+            tf::StampedTransform transform;
+            tfListener_.lookupTransform(color_frame_id_, depth_frame_id_, ros::Time(0), transform);
+
+            const tf::Matrix3x3& R = transform.getBasis();
+            const tf::Vector3& t =  transform.getOrigin();
+
+            latestDepthToColor_ = {
+                static_cast<float>(R[0][0]), static_cast<float>(R[1][0]), static_cast<float>(R[2][0]), 0.0,
+                static_cast<float>(R[0][1]), static_cast<float>(R[1][1]), static_cast<float>(R[2][1]), 0.0,
+                static_cast<float>(R[0][2]), static_cast<float>(R[1][2]), static_cast<float>(R[2][2]), 0.0,
+                static_cast<float>(t[0]),    static_cast<float>(t[1]),    static_cast<float>(t[2]),    1.0,
+            }; //column major order
+            depthToColorArrived_ = true;
+        }
+    }
+    catch (tf::TransformException& ex)
+    {
+        ROS_WARN("Transform Exception in updateDepthToColor(). %s", ex.what());
+    }
+
+    return depthToColorArrived_;
 }
 
 void DepthImageProjectorNode::run()
