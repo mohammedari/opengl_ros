@@ -33,11 +33,12 @@ DepthImageProjectorNode::DepthImageProjectorNode(const ros::NodeHandle& nh, cons
     nh_.param<double>("gridMapLayerHeight", gridMapLayerHeight, 1);
     nh_.param<double>("gridMapAccumulationWeight", gridMapAccumulationWeight, 1);
 
-    double minDepth, maxDepth, depthHitThreshold, unknownDepthColor;
+    double minDepth, maxDepth, depthHitThreshold;
+    int unknownDepthColor;
     nh_.param<double>("minDepth", minDepth, 0.105);
     nh_.param<double>("maxDepth", maxDepth, 10);
     nh_.param<double>("depthHitThreshold", depthHitThreshold, 0.95);
-    nh_.param<double>("unknownDepthColor", unknownDepthColor, 1.0); //255
+    nh_.param<int>("unknownDepthColor", unknownDepthColor, 255);
 
     std::string vertexShader, geometryShader, fragmentShader, vertexShaderScaling, fragmentShaderScaling;
     nh_.param<std::string>("vertex_shader"   , vertexShader  , "");
@@ -68,7 +69,7 @@ DepthImageProjectorNode::DepthImageProjectorNode(const ros::NodeHandle& nh, cons
     //projector_->uniform("svm_coef_b"   , svm_coef_b);
     //projector_->uniform("svm_intercept", svm_intercept);
 
-    output_.create(gridMapHeight, gridMapWidth, CV_8UC3);
+    output_.create(gridMapHeight, gridMapWidth, CV_8UC1);
 }
 
 void DepthImageProjectorNode::colorCallback(const sensor_msgs::Image::ConstPtr& imageMsg, const sensor_msgs::CameraInfoConstPtr & cameraInfoMsg)
@@ -134,7 +135,7 @@ void DepthImageProjectorNode::depthCallback(const sensor_msgs::Image::ConstPtr& 
     outImage.header.seq      = cv_ptr->header.seq;
     outImage.header.stamp    = cv_ptr->header.stamp;
     outImage.header.frame_id = "occupancy_grid"; //TODO set from parameter
-    outImage.encoding = sensor_msgs::image_encodings::RGB8;
+    outImage.encoding = sensor_msgs::image_encodings::MONO8;
     outImage.image = output_;
     imagePublisher_.publish(outImage.toImageMsg());
 }

@@ -5,8 +5,8 @@
   <arg name="depth_height"                 default="360"/>
   <arg name="depth_min"                    default="0.105"/>
   <arg name="depth_max"                    default="10"/>
-  <arg name="depth_hit_threshold"          default="0.9"/>
-  <arg name="depth_unknown_color"          default="1.0"/> <!-- set 0~1.0 for 0~255 -->
+  <arg name="depth_hit_threshold"          default="0.95"/>
+  <arg name="depth_unknown_color"          default="0"/> <!-- 0 to 255 -->
   <arg name="grid_map_width"               default="200"/>
   <arg name="grid_map_height"              default="200"/>
   <arg name="grid_map_resolution"          default="0.025"/>
@@ -74,7 +74,7 @@
     <param name="geometry_shader"           value="$(find opengl_ros_lib)/shader/gs_depth_image_projection.glsl"/>
     <param name="fragment_shader"           value="$(find opengl_ros_lib)/shader/fs_depth_image_projection.glsl"/>
     <param name="vertex_shader_scaling"     value="$(find opengl_ros_lib)/shader/vs_passthrough.glsl"/>
-    <param name="fragment_shader_scaling"   value="$(find opengl_ros_lib)/shader/fs_passthrough.glsl"/>
+    <param name="fragment_shader_scaling"   value="$(find opengl_ros_lib)/shader/fs_rgb_to_occupancy_grid.glsl"/>
 
     <remap from="~depth_to_color" to="/d435/extrinsics/depth_to_color"/>
     <remap from="color_in"        to="/d435/color/image_raw"/>

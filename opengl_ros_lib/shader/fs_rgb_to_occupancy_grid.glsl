@@ -1,44 +1,34 @@
 #version 450 core
-uniform float gridMapLayerHeight;
-uniform float gridMapAccumulationWeight;
-uniform float depthHitThreshold;
-uniform float unknownDepthColor;
-uniform vec2 validDepthInMeter;
+uniform vec2 resolution;
+uniform sampler2D texture;
+uniform int unknownDepthColor;
 
-out vec3 fragmentColor;
-//x ... accumulated probability of object existance
-//y ... 1.0 if valid depth is measured in any ray
-//z ... 1.0 if any ray achieved at the pixel 
-
-//TODO Remove entire color image process as color image is not used anymore
-uniform sampler2D colorTexture; 
-uniform float threshold_l;
-uniform float svm_coef_a;
-uniform float svm_coef_b;
-uniform float svm_intercept;
-//TODO Remove entire color image process as color image is not used anymore
-
-in float depth;
-in float hitDepth;
+in vec4 gl_FragCoord;
+out float fragmentColor;
+//output 0 - 100 if valid depth is measured
+//output `unknownDepthColor` if valid depth is not measured
+//output 255 (unknown) if ray does not reach to the pixel
 
 void main(void)
 {
-    //TODO multilayer output based on depth which represents height
+    float u = gl_FragCoord.x / resolution.x;
+    float v = gl_FragCoord.y / resolution.y;
 
-    //If the height is out of the range, discard the fragment.
-    if (gl_FragCoord.z < -gridMapLayerHeight / 2 || gridMapLayerHeight / 2 < gl_FragCoord.z)
-        discard;
+    vec3 color = texture2D(texture, vec2(u, v)).xyz;
+    //x ... accumulated probability of object existance
+    //y ... 1.0 if valid depth is measured in any ray
+    //z ... 1.0 if any ray achieved at the pixel 
 
-    float validDepthMeasured = 1.0;
-    if (validDepthInMeter.y <= hitDepth)
-        validDepthMeasured = 0.0;
+    if (color.z < 0.5)
+    {
+        fragmentColor = 1.0;
+        return;
+    }
+    
+    if (color.y < 0.5) {
+        fragmentColor = unknownDepthColor / 255.0;
+        return;
+    }
 
-    float accumulatedProbability = 0.0;
-    if (0 < validDepthMeasured && hitDepth * depthHitThreshold < depth)
-        accumulatedProbability = gridMapAccumulationWeight;
-
-    //store accumulated value in R channel
-    //store 1.0 in G channel if the pixel is on the line
-    //always store 1.0 in B channel 
-    fragmentColor = vec3(accumulatedProbability, validDepthmeasured, 1.0); 
+    fragmentColor = color.x * 100.0 / 255.0; //rescale to 0~100
 }

@@ -43,7 +43,7 @@ struct DepthImageProjector::Impl
     const float minDepth_;
     const float maxDepth_;
     const float depthHitThreshold_;
-    const float unknownDepthColor_; 
+    const int unknownDepthColor_; 
 
     //first path
     std::array<cgs::gl::Shader, 3> shaders_;
@@ -73,7 +73,7 @@ struct DepthImageProjector::Impl
         int depthWidth, int depthHeight,
         int gridMapWidth, int gridMapHeight, float gridMapResolution, 
         float gridMapLayerHeight, float gridMapAccumulationWeight,
-        float minDepth, float maxDepth, float depthHitThreshold, float unknownDepthColor, 
+        float minDepth, float maxDepth, float depthHitThreshold, int unknownDepthColor, 
         const std::string& vertexShader, const std::string& geometryShader, const std::string& fragmentShader, 
         const std::string& vertexScalingShader, const std::string& fragmentScalingShader);
 
@@ -92,7 +92,7 @@ DepthImageProjector::Impl::Impl(
     int depthWidth, int depthHeight, 
     int gridMapWidth, int gridMapHeight, float gridMapResolution, 
     float gridMapLayerHeight, float gridMapAccumulationWeight,
-    float minDepth, float maxDepth, float depthHitThreshold, float unknownDepthColor, 
+    float minDepth, float maxDepth, float depthHitThreshold, int unknownDepthColor, 
     const std::string& vertexShader, const std::string& geometryShader, const std::string& fragmentShader, 
     const std::string& vertexScalingShader, const std::string& fragmentScalingShader) :
     context_(true),
@@ -130,7 +130,7 @@ DepthImageProjector::Impl::Impl(
     programScaling_(shaderScaling_),
     vboScaling_(SQUARE_VERTICIES, GL_STATIC_DRAW), 
     eboScaling_(SQUARE_INDICIES, GL_STATIC_DRAW), 
-    textureOut_(GL_R8UI, gridMapWidth, gridMapHeight),
+    textureOut_(GL_R8, gridMapWidth, gridMapHeight),
     intermediateSampler_(GL_NEAREST, GL_NEAREST, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE),
     fboScaling_(textureOut_)
 {
@@ -156,15 +156,15 @@ void DepthImageProjector::Impl::updateProjectionMatrix(
 
 void DepthImageProjector::Impl::project(cv::Mat& dest, const cv::Mat& color, const cv::Mat& depth)
 {
-    if (gridMapWidth_ != dest.cols || gridMapHeight_ != dest.rows || CV_8UC3 != dest.type())
+    if (gridMapWidth_ != dest.cols || gridMapHeight_ != dest.rows || CV_8UC1 != dest.type())
     {
         ROS_ERROR_STREAM(
             "Destination image resolution does not match."                            << std::endl <<
             "width:     texture=" << gridMapWidth_  << ", input=" << dest.cols        << std::endl <<
             "height:    texture=" << gridMapHeight_ << ", input=" << dest.rows        << std::endl <<
-            "channel:   texture=" << 3              << ", input=" << dest.channels()  << std::endl <<
+            "channel:   texture=" << 1              << ", input=" << dest.channels()  << std::endl <<
             "elemSize1: texture=" << 1              << ", input=" << dest.elemSize1() << std::endl <<
-            "type:      texture=" << CV_8UC3        << ", input=" << dest.type());
+            "type:      texture=" << CV_8UC1        << ", input=" << dest.type());
         return;
     }
 
@@ -239,37 +239,36 @@ void DepthImageProjector::Impl::project(cv::Mat& dest, const cv::Mat& color, con
         glDrawArrays(GL_POINTS, 0, verticies_.size());
     }
 
-    ////second path
-    //{
-    //    //Shaders setup
-    //    program_.use();
-    //    glUniform2f(glGetUniformLocation(program_.get(), "resolution"), width_, height_);
-    //    glUniform1i(glGetUniformLocation(program_.get(), "texture"), 0);
-    //    glUniform1f(glGetUniformLocation(program_.get() , "unknownDepthColor"), unknownDepthColor_);
+    //second path
+    {
+        //Shaders setup
+        programScaling_.use();
+        glUniform2f(glGetUniformLocation(programScaling_.get(), "resolution"), gridMapWidth_, gridMapHeight_);
+        glUniform1i(glGetUniformLocation(programScaling_.get(), "texture"), 0);
+        glUniform1i(glGetUniformLocation(programScaling_.get(), "unknownDepthColor"), unknownDepthColor_);
 
-    //    //Verticies setup
-    //    vaoScaling_.mapVariable(vboScaling_, glGetAttribLocation(program_.get(), "position"), 3, GL_FLOAT, 0);
-    //    vaoScaling_.mapVariable(eboScaling_);
+        //Verticies setup
+        vaoScaling_.mapVariable(vboScaling_, glGetAttribLocation(programScaling_.get(), "position"), 3, GL_FLOAT, 0);
+        vaoScaling_.mapVariable(eboScaling_);
 
-    //    //Disable flags
-    //    glDisable(GL_DEPTH_CLAMP); 
-    //    glDisable(GL_BLEND);
+        //Disable flags
+        glDisable(GL_DEPTH_CLAMP); 
+        glDisable(GL_BLEND);
 
-    //    textureIntermediate_.bindToUnit(0);
-    //    samplerIntermediate_.bindToUnit(0);
+        textureIntermediate_.bindToUnit(0);
+        intermediateSampler_.bindToUnit(0);
 
-    //    fboScaling_.bind();
-    //    glViewport(0, 0, width_, height_);
+        fboScaling_.bind();
+        glViewport(0, 0, gridMapWidth_, gridMapHeight_);
 
-    //    vaoScaling_.bind();
-    //    glDrawElements(GL_TRIANGLES, INDICIES.size(), GL_UNSIGNED_INT, nullptr);
-    //}
+        vaoScaling_.bind();
+        glDrawElements(GL_TRIANGLES, SQUARE_INDICIES.size(), GL_UNSIGNED_INT, nullptr);
+    }
 
     glFinish();
 
     //Read result
-    //textureOut_.read(GL_RED, GL_UNSIGNED_BYTE, dest.data, dest.rows * dest.cols * dest.channels());
-    textureIntermediate_.read(GL_RGB, GL_UNSIGNED_BYTE, dest.data, dest.rows * dest.cols * dest.channels());
+    textureOut_.read(GL_RED, GL_UNSIGNED_BYTE, dest.data, dest.rows * dest.cols * dest.channels());
 }
 
 DepthImageProjector::DepthImageProjector(
@@ -277,7 +276,7 @@ DepthImageProjector::DepthImageProjector(
     int depthWidth, int depthHeight, 
     int gridMapWidth, int gridMapHeight, float gridMapResolution, 
     float gridMapLayerHeight, float gridMapAccumulationWeight, 
-    float minDepth, float maxDepth, float depthHitThreshold, float unknownDepthColor, 
+    float minDepth, float maxDepth, float depthHitThreshold, int unknownDepthColor, 
     const std::string& vertexShader, const std::string& geometryShader, const std::string& fragmentShader,
     const std::string& vertexScalingShader, const std::string& fragmentScalingShader)
 try

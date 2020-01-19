@@ -21,7 +21,7 @@ public:
         int depthWidth, int depthHeight, 
         int gridMapWidth, int gridMapHeight, float gridMapResolution, 
         float gridMapLayerHeight, float gridMapAccumulationWeight,
-        float minDepth, float maxDepth, float depthHitThreshold, float unknownDepthColor, 
+        float minDepth, float maxDepth, float depthHitThreshold, int unknownDepthColor, 
         const std::string& vertexShader, const std::string& geometryShader, const std::string& fragmentShader,
         const std::string& vertexScalingShader, const std::string& fragmentScalingShader); 
     ~DepthImageProjector();
