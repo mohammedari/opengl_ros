@@ -33,17 +33,27 @@ DepthImageProjectorNode::DepthImageProjectorNode(const ros::NodeHandle& nh, cons
     nh_.param<double>("gridMapLayerHeight", gridMapLayerHeight, 1);
     nh_.param<double>("gridMapAccumulationWeight", gridMapAccumulationWeight, 1);
 
-    std::string vertexShader, geometryShader, fragmentShader;
+    double minDepth, maxDepth, depthHitThreshold, unknownDepthColor;
+    nh_.param<double>("minDepth", minDepth, 0.105);
+    nh_.param<double>("maxDepth", maxDepth, 10);
+    nh_.param<double>("depthHitThreshold", depthHitThreshold, 0.95);
+    nh_.param<double>("unknownDepthColor", unknownDepthColor, 1.0); //255
+
+    std::string vertexShader, geometryShader, fragmentShader, vertexShaderScaling, fragmentShaderScaling;
     nh_.param<std::string>("vertex_shader"   , vertexShader  , "");
     nh_.param<std::string>("geometry_shader" , geometryShader, "");
     nh_.param<std::string>("fragment_shader" , fragmentShader, "");
+    nh_.param<std::string>("vertex_shader_scaling" , vertexShaderScaling, "");
+    nh_.param<std::string>("fragment_shader_scaling", fragmentShaderScaling, "");
 
     projector_ = std::make_unique<cgs::DepthImageProjector>(
         colorWidth, colorHeight, 
         depthWidth, depthHeight, 
-        gridMapWidth, gridMapHeight, gridMapResolution, gridMapLayerHeight,
-        gridMapAccumulationWeight,
-        vertexShader, geometryShader, fragmentShader
+        gridMapWidth, gridMapHeight, gridMapResolution, 
+        gridMapLayerHeight, gridMapAccumulationWeight,
+        minDepth, maxDepth, depthHitThreshold, unknownDepthColor, 
+        vertexShader, geometryShader, fragmentShader, 
+        vertexShaderScaling, fragmentShaderScaling
     );
 
     float threshold_l, svm_coef_a, svm_coef_b, svm_intercept;
@@ -52,10 +62,11 @@ DepthImageProjectorNode::DepthImageProjectorNode(const ros::NodeHandle& nh, cons
     nh_.param<float>("svm_coef_b"   , svm_coef_b   , 0);
     nh_.param<float>("svm_intercept", svm_intercept, 0);
 
-    projector_->uniform("threshold_l"  , threshold_l);
-    projector_->uniform("svm_coef_a"   , svm_coef_a);
-    projector_->uniform("svm_coef_b"   , svm_coef_b);
-    projector_->uniform("svm_intercept", svm_intercept);
+    //TODO Remove entire color image process as color image is not used anymore
+    //projector_->uniform("threshold_l"  , threshold_l);
+    //projector_->uniform("svm_coef_a"   , svm_coef_a);
+    //projector_->uniform("svm_coef_b"   , svm_coef_b);
+    //projector_->uniform("svm_intercept", svm_intercept);
 
     output_.create(gridMapHeight, gridMapWidth, CV_8UC3);
 }
@@ -88,19 +99,21 @@ void DepthImageProjectorNode::depthCallback(const sensor_msgs::Image::ConstPtr& 
         return;
     }
 
-    if (!latestColorImagePtr)
-    {
-        ROS_WARN_STREAM("color stream not ready");
-        return;
-    }
+    //TODO Remove entire color image process as color image is not used anymore
+    //if (!latestColorImagePtr)
+    //{
+    //    ROS_WARN_STREAM("color stream not ready");
+    //    return;
+    //}
 
-    // Update & check whether depthToColor is valid.
-    bool is_conversion_valid = updateDepthToColor();
-    if (!is_conversion_valid)
-    {
-        ROS_WARN_STREAM("extrinsics parameter not arrivied yet");
-        return;
-    }
+    //TODO Remove entire color image process as color image is not used anymore
+    //// Update & check whether depthToColor is valid.
+    //bool is_conversion_valid = updateDepthToColor();
+    //if (!is_conversion_valid)
+    //{
+    //    ROS_WARN_STREAM("extrinsics parameter not arrivied yet");
+    //    return;
+    //}
 
     //Update projector parameters with camera info
     projector_->updateProjectionMatrix(

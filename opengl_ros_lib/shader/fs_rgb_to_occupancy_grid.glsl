@@ -2,6 +2,7 @@
 uniform float gridMapLayerHeight;
 uniform float gridMapAccumulationWeight;
 uniform float depthHitThreshold;
+uniform float unknownDepthColor;
 uniform vec2 validDepthInMeter;
 
 out vec3 fragmentColor;

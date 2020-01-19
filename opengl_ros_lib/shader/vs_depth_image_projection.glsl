@@ -4,12 +4,14 @@ uniform float depthUnit;
 uniform usampler2D depthTexture; //using unsigned integer sampler
 uniform vec2 depthFocalLength;
 uniform vec2 depthCenter;
+uniform vec2 validDepthInMeter;
 
+//TODO Remove entire color image process as color image is not used anymore
 uniform vec2 colorSize;
 uniform vec2 colorFocalLength;
 uniform vec2 colorCenter;
-
 uniform mat4 depthToColor;
+//TODO Remove entire color image process as color image is not used anymore
 
 uniform vec2 gridMapSize;
 uniform float gridMapResolution;
@@ -28,17 +30,11 @@ out vertex
                      //z = -1 to 1; which represents low to high, 
                      //w = 1
 
-    vec2 colorUV;    //The UV coordinate of corresponding pixel in the color image.
-                     //x = 0 to 1
-                     //y = 0 to 1
+    float depth;     //The depth value in meter of the point.
 } output_vertex;
 
 void main(void)
 {
-    //TODO set by uniform variable
-    //The values in the image from D435 is not range value.
-    const bool rangeValueInDepthImage = false;
-
     //Sampling depth from the texture
     //XY coordinate and texture UV mathes in OpenGL 
     ivec2 depthUV = ivec2(
@@ -47,21 +43,18 @@ void main(void)
     );
     float depth = texelFetch(depthTexture, depthUV, 0).x * depthUnit; //convert to meter scale
 
+    if (depth < validDepthInMeter.x || validDepthInMeter.y < depth)
+    {
+        depth = validDepthInMeter.y; //set to the max value
+    }
+
     //Now, convert image pixel (ix, iy, iz) to point in the optical frame (px, py, pz).
     //First, calculate px/pz and px/pz from ix/iz and iy/iz using projection matrix. 
     //[ix]   [fx  0  cx][px]
     //[iy] = [ 0 fy  cy][py]
     //[iz]   [ 0  0   1][pz]
-    //Then, calculate pz using following formula.
-    //px^2 + py^2 + pz^2 = depth^2
-    //-> (px/pz)^2 + (py/pz)^2 + 1 = (depth/pz)^2
-    //-> pz^2 = (depth)^2 / ((px/pz)^2 + (py/pz)^2 + 1)
     vec2  pxy_z  = (input_pixel.xy - depthCenter.xy) / depthFocalLength.xy;
-    float pz;
-    if (rangeValueInDepthImage)
-        pz = sqrt(depth * depth / (length(pxy_z) + 1));
-    else
-        pz = depth;
+    float pz = depth;
     vec3  point  = vec3(pxy_z * pz, pz);
 
     //TODO rotate the point along with camera pose
@@ -74,20 +67,5 @@ void main(void)
         point.y / (gridMapLayerHeight / 2),                  //mapping -height/2 to height/2, to -1 to 1
         1.0
     );
-
-    //Calculate coordinate in color image
-    vec4 colorPoint = depthToColor * vec4(point, 1);
-
-    mat3 colorProjection = mat3(
-        colorFocalLength.x,                  0, 0, 
-                         0, colorFocalLength.y, 0, 
-             colorCenter.x,      colorCenter.y, 1
-    ); //column major order
-    vec3 colorImagePoint = colorProjection * colorPoint.xyz;
-
-    //Output texture coordinate
-    output_vertex.colorUV = vec2(
-        colorImagePoint.x / colorImagePoint.z / colorSize.x, 
-        colorImagePoint.y / colorImagePoint.z / colorSize.y
-    );
+    output_vertex.depth   = depth;
 }
