@@ -9,6 +9,7 @@
 #include <image_transport/image_transport.h>
 #include <cv_bridge/cv_bridge.h>
 #include <tf/transform_listener.h>
+#include <nav_msgs/OccupancyGrid.h>
 
 #include "depth_image_projector.h"
 
@@ -20,14 +21,19 @@ class DepthImageProjectorNode
     ros::NodeHandle nh_;
     image_transport::ImageTransport it_;
 
-    // tf
+    //tf
     std::string color_frame_id_;
     std::string depth_frame_id_;
+    std::string map_frame_id_;
     tf::TransformListener tfListener_;
     double tf_wait_duration_;
 
+    //Other parameters
+    int gridMapWidth_, gridMapHeight_;
+    double gridMapResolution_;
+
     //Publishers and Subscribers
-    image_transport::Publisher imagePublisher_;
+    ros::Publisher mapPublisher_;
     image_transport::CameraSubscriber colorSubscriber_;
     image_transport::CameraSubscriber depthSubscriber_;
     ros::Subscriber depthToColorSubscriber_;

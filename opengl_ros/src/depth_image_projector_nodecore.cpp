@@ -1,13 +1,14 @@
 #include "depth_image_projector_nodecore.h"
 
 #include <opencv2/opencv.hpp>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.h>
 
 using namespace opengl_ros;
 
 DepthImageProjectorNode::DepthImageProjectorNode(const ros::NodeHandle& nh, const ros::NodeHandle& nh_private)
     : nh_(nh_private), it_(nh)
 {
-    imagePublisher_  = it_.advertise("image_out", 1);
+    mapPublisher_ = nh_.advertise<nav_msgs::OccupancyGrid>("map", 1);
 
     //TODO synchronize two image topics
     colorSubscriber_ = it_.subscribeCamera("color_in" , 1, &DepthImageProjectorNode::colorCallback, this);
@@ -16,6 +17,7 @@ DepthImageProjectorNode::DepthImageProjectorNode(const ros::NodeHandle& nh, cons
     // frame ids for tf which associates color frame with depth frame
     nh_.param<std::string>("color_frame_id", color_frame_id_, "d435_color_optical");
     nh_.param<std::string>("depth_frame_id", depth_frame_id_, "d435_depth_optical");
+    nh_.param<std::string>("map_frame_id", map_frame_id_, "d435_depth");
     nh_.param<double>("tf_wait_duration", tf_wait_duration_, 0.1);
 
     int colorWidth, colorHeight;
@@ -25,11 +27,10 @@ DepthImageProjectorNode::DepthImageProjectorNode(const ros::NodeHandle& nh, cons
     nh_.param<int>("depthWidth" , depthWidth , 640);
     nh_.param<int>("depthHeight", depthHeight, 360);
 
-    int gridMapWidth, gridMapHeight;
-    double gridMapResolution, gridMapLayerHeight, gridMapAccumulationWeight;
-    nh_.param<int>("gridMapWidth" , gridMapWidth , 1000);
-    nh_.param<int>("gridMapHeight", gridMapHeight, 1000);
-    nh_.param<double>("gridMapResolution", gridMapResolution, 0.01);
+    double gridMapLayerHeight, gridMapAccumulationWeight;
+    nh_.param<int>("gridMapWidth" , gridMapWidth_ , 1000);
+    nh_.param<int>("gridMapHeight", gridMapHeight_, 1000);
+    nh_.param<double>("gridMapResolution", gridMapResolution_, 0.01);
     nh_.param<double>("gridMapLayerHeight", gridMapLayerHeight, 1);
     nh_.param<double>("gridMapAccumulationWeight", gridMapAccumulationWeight, 1);
 
@@ -50,7 +51,7 @@ DepthImageProjectorNode::DepthImageProjectorNode(const ros::NodeHandle& nh, cons
     projector_ = std::make_unique<cgs::DepthImageProjector>(
         colorWidth, colorHeight, 
         depthWidth, depthHeight, 
-        gridMapWidth, gridMapHeight, gridMapResolution, 
+        gridMapWidth_, gridMapHeight_, gridMapResolution_, 
         gridMapLayerHeight, gridMapAccumulationWeight,
         minDepth, maxDepth, depthHitThreshold, unknownDepthColor, 
         vertexShader, geometryShader, fragmentShader, 
@@ -69,7 +70,7 @@ DepthImageProjectorNode::DepthImageProjectorNode(const ros::NodeHandle& nh, cons
     //projector_->uniform("svm_coef_b"   , svm_coef_b);
     //projector_->uniform("svm_intercept", svm_intercept);
 
-    output_.create(gridMapHeight, gridMapWidth, CV_8UC1);
+    output_.create(gridMapHeight_, gridMapWidth_, CV_8UC1);
 }
 
 void DepthImageProjectorNode::colorCallback(const sensor_msgs::Image::ConstPtr& imageMsg, const sensor_msgs::CameraInfoConstPtr & cameraInfoMsg)
@@ -131,13 +132,28 @@ void DepthImageProjectorNode::depthCallback(const sensor_msgs::Image::ConstPtr& 
     projector_->project(output_, color, depth);
 
     //Publish
-    cv_bridge::CvImage outImage;
-    outImage.header.seq      = cv_ptr->header.seq;
-    outImage.header.stamp    = cv_ptr->header.stamp;
-    outImage.header.frame_id = "occupancy_grid"; //TODO set from parameter
-    outImage.encoding = sensor_msgs::image_encodings::MONO8;
-    outImage.image = output_;
-    imagePublisher_.publish(outImage.toImageMsg());
+    nav_msgs::MapMetaData mapInfo;
+    mapInfo.resolution = gridMapResolution_;
+    mapInfo.width = gridMapWidth_;
+    mapInfo.height = gridMapHeight_;
+    mapInfo.origin.position.x = +gridMapWidth_  * gridMapResolution_;
+    mapInfo.origin.position.y = -gridMapHeight_ * gridMapResolution_ / 2;
+    tf2::Quaternion orientation;
+    orientation.setRPY( 0, 0, M_PI / 2 );
+    mapInfo.origin.orientation = tf2::toMsg(orientation);
+
+    nav_msgs::OccupancyGrid grid;
+    grid.header.seq      = cv_ptr->header.seq;
+    grid.header.stamp    = cv_ptr->header.stamp;
+    grid.header.frame_id = map_frame_id_;
+    grid.info = mapInfo;
+
+    auto data = reinterpret_cast<int8_t*>(output_.data);
+    auto size = gridMapWidth_ * gridMapHeight_;
+    grid.data.reserve(size);
+    std::copy(data, data + size, std::back_inserter(grid.data));
+    mapPublisher_.publish(grid);
+
 }
 
 bool DepthImageProjectorNode::updateDepthToColor()
