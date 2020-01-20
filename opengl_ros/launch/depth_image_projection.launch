@@ -47,7 +47,7 @@
     name="depth_image_projector" output="screen">
     <param name="color_frame_id"            value="d435_color_optical"/>
     <param name="depth_frame_id"            value="d435_depth_optical"/>
-    <param name="map_frame_id"              value="d435_link"/>
+    <param name="map_frame_id"              value="d435_depth_link"/>
     <param name="tf_wait_duration"          value="0.1"/>
 
     <param name="colorWidth"                value="$(arg depth_width)"/>

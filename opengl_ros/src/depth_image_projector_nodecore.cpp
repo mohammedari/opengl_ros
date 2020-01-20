@@ -17,7 +17,7 @@ DepthImageProjectorNode::DepthImageProjectorNode(const ros::NodeHandle& nh, cons
     // frame ids for tf which associates color frame with depth frame
     nh_.param<std::string>("color_frame_id", color_frame_id_, "d435_color_optical");
     nh_.param<std::string>("depth_frame_id", depth_frame_id_, "d435_depth_optical");
-    nh_.param<std::string>("map_frame_id", map_frame_id_, "d435_depth");
+    nh_.param<std::string>("map_frame_id", map_frame_id_, "d435_depth_link");
     nh_.param<double>("tf_wait_duration", tf_wait_duration_, 0.1);
 
     int colorWidth, colorHeight;
