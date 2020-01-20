@@ -136,10 +136,10 @@ void DepthImageProjectorNode::depthCallback(const sensor_msgs::Image::ConstPtr& 
     mapInfo.resolution = gridMapResolution_;
     mapInfo.width = gridMapWidth_;
     mapInfo.height = gridMapHeight_;
-    mapInfo.origin.position.x = +gridMapWidth_  * gridMapResolution_;
-    mapInfo.origin.position.y = -gridMapHeight_ * gridMapResolution_ / 2;
+    mapInfo.origin.position.x = gridMapWidth_  * gridMapResolution_;
+    mapInfo.origin.position.y = gridMapHeight_ * gridMapResolution_ / 2;
     tf2::Quaternion orientation;
-    orientation.setRPY( 0, 0, M_PI / 2 );
+    orientation.setRPY( 0, M_PI, M_PI / 2 );
     mapInfo.origin.orientation = tf2::toMsg(orientation);
 
     nav_msgs::OccupancyGrid grid;
