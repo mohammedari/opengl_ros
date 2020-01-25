@@ -68,6 +68,10 @@ struct DepthImageProjector::Impl
     //not const parameters
     std::array<float, 2> depthFocalLength_ = {};
     std::array<float, 2> depthCenter_ = {}; 
+    std::array<float, 16> depthToMap_ = {0.0f, -1.0f,  0.0f, 0.0f,
+                                         0.0f,  0.0f, -1.0f, 0.0f,
+                                         1.0f,  0.0f,  0.0f, 0.0f,
+                                         0.0f,  0.0f,  0.0f, 1.0f};
 
     Impl(int colorWidth, int colorHeight, 
         int depthWidth, int depthHeight,
@@ -80,7 +84,7 @@ struct DepthImageProjector::Impl
     void updateProjectionMatrix(
         const std::array<float, 2> colorFocalLength, const std::array<float, 2> colorCenter, 
         const std::array<float, 2> depthFocalLength, const std::array<float, 2> depthCenter, 
-        const std::array<float, 16> depthToColor);
+        const std::array<float, 16> depthToColor, const std::array<float, 16> depthToMap);
     void project(cv::Mat& dest, const cv::Mat& color, const cv::Mat& depth);
 };
 
@@ -141,7 +145,7 @@ DepthImageProjector::Impl::Impl(
 void DepthImageProjector::Impl::updateProjectionMatrix(
     const std::array<float, 2> colorFocalLength, const std::array<float, 2> colorCenter, 
     const std::array<float, 2> depthFocalLength, const std::array<float, 2> depthCenter, 
-    const std::array<float, 16> depthToColor)
+    const std::array<float, 16> depthToColor, const std::array<float, 16> depthToMap)
 {
     //TODO Remove entire color image process as color image is not used anymore
     //glUniform2fv(glGetUniformLocation(program_.get(), "colorFocalLength")  , 1, colorFocalLength.data());
@@ -152,6 +156,7 @@ void DepthImageProjector::Impl::updateProjectionMatrix(
 
     depthFocalLength_ = depthFocalLength;
     depthCenter_ = depthCenter;
+    depthToMap_ = depthToMap;
 }
 
 void DepthImageProjector::Impl::project(cv::Mat& dest, const cv::Mat& color, const cv::Mat& depth)
@@ -196,6 +201,12 @@ void DepthImageProjector::Impl::project(cv::Mat& dest, const cv::Mat& color, con
     {
         //Shaders setup
         program_.use();
+        std::array<float, 4> normalized_camera_pos = {
+          depthToMap_[12] / gridMapResolution_ / gridMapWidth_ * 2,
+          depthToMap_[13] / gridMapResolution_ / gridMapHeight_ * 2,
+          depthToMap_[14] / gridMapLayerHeight_ / 2,
+          depthToMap_[15]};
+
         //glUniform2f(glGetUniformLocation(program_.get(), "colorSize"), colorWidth_, colorHeight_);
         glUniform2f(glGetUniformLocation(program_.get() , "depthSize"), depthWidth_, depthHeight_);
         glUniform1f(glGetUniformLocation(program_.get() , "depthUnit"), 0.001); //TODO change to be set with an external parameter
@@ -209,6 +220,8 @@ void DepthImageProjector::Impl::project(cv::Mat& dest, const cv::Mat& color, con
         glUniform1f(glGetUniformLocation(program_.get() , "depthHitThreshold"), depthHitThreshold_);
         glUniform2fv(glGetUniformLocation(program_.get(), "depthFocalLength") , 1, depthFocalLength_.data());
         glUniform2fv(glGetUniformLocation(program_.get(), "depthCenter")      , 1, depthCenter_.data());
+        glUniformMatrix4fv(glGetUniformLocation(program_.get(), "depthToMap"), 1, GL_FALSE, depthToMap_.data());
+        glUniform4fv(glGetUniformLocation(program_.get(), "lineOrigin"), 1, normalized_camera_pos.data());
 
         //Verticies setup
         vao_.mapVariable(vbo_, glGetAttribLocation(program_.get(), "input_pixel"), 3, GL_FLOAT, 0);
@@ -306,12 +319,14 @@ DepthImageProjector::~DepthImageProjector() = default;
 void DepthImageProjector::updateProjectionMatrix(
     const std::array<float, 2> colorFocalLength, const std::array<float, 2> colorCenter, 
     const std::array<float, 2> depthFocalLength, const std::array<float, 2> depthCenter, 
-    const std::array<float, 16> depthToColor)
+    const std::array<float, 16> depthToColor,
+    const std::array<float, 16> depthToMap)
 {
     impl_->updateProjectionMatrix(
         colorFocalLength, colorCenter, 
         depthFocalLength, depthCenter, 
-        depthToColor);
+        depthToColor,
+        depthToMap);
 }
 
 void DepthImageProjector::project(cv::Mat& dest, const cv::Mat& color, const cv::Mat& depth)

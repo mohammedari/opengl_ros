@@ -13,6 +13,8 @@ uniform vec2 colorCenter;
 uniform mat4 depthToColor;
 //TODO Remove entire color image process as color image is not used anymore
 
+uniform mat4 depthToMap;
+
 uniform vec2 gridMapSize;
 uniform float gridMapResolution;
 uniform float gridMapLayerHeight;
@@ -55,16 +57,17 @@ void main(void)
     //[iz]   [ 0  0   1][pz]
     vec2  pxy_z  = (input_pixel.xy - depthCenter.xy) / depthFocalLength.xy;
     float pz = depth;
-    vec3  point  = vec3(pxy_z * pz, pz);
+    vec4  point  = vec4(pxy_z * pz, pz, 1.0);
 
-    //TODO rotate the point along with camera pose
+    //Transform the point along with camera pose
+    vec4 p = depthToMap * point;
 
     //Ouptut vertex coordinate
     //Projecting the point to the occupancy grid plane, in top down orthognal projection
     output_vertex.position = vec4(
-        point.x / gridMapResolution / gridMapSize.x * 2,     //convert to -1 to 1
-        1 - point.z / gridMapResolution / gridMapSize.y * 2, //set the origin on the bottom and flip upside down
-        point.y / (gridMapLayerHeight / 2),                  //mapping -height/2 to height/2, to -1 to 1
+        p.x / gridMapResolution / gridMapSize.x * 2,     //convert to -1 to 1
+        p.y / gridMapResolution / gridMapSize.y * 2,     //set the origin on the bottom and flip upside down
+        p.z / (gridMapLayerHeight / 2),                  //mapping -height/2 to height/2, to -1 to 1
         1.0
     );
     output_vertex.depth   = depth;

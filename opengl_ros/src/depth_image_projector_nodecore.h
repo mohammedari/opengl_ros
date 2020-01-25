@@ -47,6 +47,7 @@ class DepthImageProjectorNode
     void colorCallback(const sensor_msgs::Image::ConstPtr& imageMsg, const sensor_msgs::CameraInfoConstPtr & cameraInfoMsg);
     void depthCallback(const sensor_msgs::Image::ConstPtr& imageMsg, const sensor_msgs::CameraInfoConstPtr & cameraInfoMsg);
     bool depthToColorArrived_ = false;
+    void getTransformMatrixArray(const tf::Transform& transform, std::array<float, 16>& matrix);
     std::array<float, 16> latestDepthToColor_;
     bool updateDepthToColor();
 
