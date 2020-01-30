@@ -68,10 +68,10 @@ struct DepthImageProjector::Impl
     //not const parameters
     std::array<float, 2> depthFocalLength_ = {};
     std::array<float, 2> depthCenter_ = {}; 
-    std::array<float, 16> depthToMap_ = {0.0f, -1.0f,  0.0f, 0.0f,
-                                         0.0f,  0.0f, -1.0f, 0.0f,
-                                         1.0f,  0.0f,  0.0f, 0.0f,
-                                         0.0f,  0.0f,  0.0f, 1.0f};
+    std::array<float, 16> depthToMap_ = {{0.0f, -1.0f,  0.0f, 0.0f,
+                                          0.0f,  0.0f, -1.0f, 0.0f,
+                                          1.0f,  0.0f,  0.0f, 0.0f,
+                                          0.0f,  0.0f,  0.0f, 1.0f}};
 
     Impl(int colorWidth, int colorHeight, 
         int depthWidth, int depthHeight,
