@@ -116,6 +116,23 @@ void DepthImageProjectorNode::depthCallback(const sensor_msgs::Image::ConstPtr& 
     //    ROS_WARN_STREAM("extrinsics parameter not arrivied yet");
     //    return;
     //}
+    //
+    std::array<float, 16> depthToMap;
+    try
+    {
+        if (tfListener_.waitForTransform(map_frame_id_, cameraInfoMsg->header.frame_id,
+              cameraInfoMsg->header.stamp, ros::Duration(tf_wait_duration_)))
+        {
+            tf::StampedTransform transform;
+            tfListener_.lookupTransform(map_frame_id_, cameraInfoMsg->header.frame_id,
+                cameraInfoMsg->header.stamp, transform);
+            getTransformMatrixArray(transform, depthToMap);
+        }
+    }
+    catch (tf::TransformException& ex)
+    {
+        ROS_WARN("Transform Exception in depthCallback(). %s", ex.what());
+    }
 
     //Update projector parameters with camera info
     projector_->updateProjectionMatrix(
@@ -123,7 +140,8 @@ void DepthImageProjectorNode::depthCallback(const sensor_msgs::Image::ConstPtr& 
         {static_cast<float>(latestColorCameraInfoPtr->K[2]), static_cast<float>(latestColorCameraInfoPtr->K[5])}, 
         {static_cast<float>(cameraInfoMsg->K[0])           , static_cast<float>(cameraInfoMsg->K[4])}, 
         {static_cast<float>(cameraInfoMsg->K[2])           , static_cast<float>(cameraInfoMsg->K[5])}, 
-        latestDepthToColor_
+        latestDepthToColor_,
+        depthToMap
     );
 
     //Perform projection
@@ -136,10 +154,10 @@ void DepthImageProjectorNode::depthCallback(const sensor_msgs::Image::ConstPtr& 
     mapInfo.resolution = gridMapResolution_;
     mapInfo.width = gridMapWidth_;
     mapInfo.height = gridMapHeight_;
-    mapInfo.origin.position.x = gridMapWidth_  * gridMapResolution_;
-    mapInfo.origin.position.y = gridMapHeight_ * gridMapResolution_ / 2;
+    mapInfo.origin.position.x = -gridMapHeight_ * gridMapResolution_ / 2;
+    mapInfo.origin.position.y = -gridMapWidth_ * gridMapResolution_ / 2;
     tf2::Quaternion orientation;
-    orientation.setRPY( 0, M_PI, M_PI / 2 );
+    orientation.setRPY(0.0, 0.0, 0.0);
     mapInfo.origin.orientation = tf2::toMsg(orientation);
 
     nav_msgs::OccupancyGrid grid;
@@ -154,6 +172,19 @@ void DepthImageProjectorNode::depthCallback(const sensor_msgs::Image::ConstPtr& 
     std::copy(data, data + size, std::back_inserter(grid.data));
     mapPublisher_.publish(grid);
 
+}
+
+void DepthImageProjectorNode::getTransformMatrixArray(const tf::Transform& transform, std::array<float, 16>& matrix)
+{
+    const tf::Matrix3x3& R = transform.getBasis();
+    const tf::Vector3& t =  transform.getOrigin();
+
+    matrix = {
+        static_cast<float>(R[0][0]), static_cast<float>(R[1][0]), static_cast<float>(R[2][0]), 0.0,
+        static_cast<float>(R[0][1]), static_cast<float>(R[1][1]), static_cast<float>(R[2][1]), 0.0,
+        static_cast<float>(R[0][2]), static_cast<float>(R[1][2]), static_cast<float>(R[2][2]), 0.0,
+        static_cast<float>(t[0]),    static_cast<float>(t[1]),    static_cast<float>(t[2]),    1.0,
+    }; //column major order
 }
 
 bool DepthImageProjectorNode::updateDepthToColor()
@@ -171,15 +202,8 @@ bool DepthImageProjectorNode::updateDepthToColor()
             tf::StampedTransform transform;
             tfListener_.lookupTransform(color_frame_id_, depth_frame_id_, ros::Time(0), transform);
 
-            const tf::Matrix3x3& R = transform.getBasis();
-            const tf::Vector3& t =  transform.getOrigin();
+            getTransformMatrixArray(transform, latestDepthToColor_);
 
-            latestDepthToColor_ = {
-                static_cast<float>(R[0][0]), static_cast<float>(R[1][0]), static_cast<float>(R[2][0]), 0.0,
-                static_cast<float>(R[0][1]), static_cast<float>(R[1][1]), static_cast<float>(R[2][1]), 0.0,
-                static_cast<float>(R[0][2]), static_cast<float>(R[1][2]), static_cast<float>(R[2][2]), 0.0,
-                static_cast<float>(t[0]),    static_cast<float>(t[1]),    static_cast<float>(t[2]),    1.0,
-            }; //column major order
             depthToColorArrived_ = true;
         }
     }

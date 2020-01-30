@@ -1,5 +1,7 @@
 #version 450 core
 
+uniform vec4 lineOrigin; // camera position in projection coordinate
+
 layout(points) in;
 layout(line_strip, max_vertices = 2) out;
 
@@ -14,8 +16,6 @@ out float hitDepth;
 
 void main(void)
 {
-    const vec4 lineOrigin = vec4(0, 1, 0, 1); //Top center of the image
-
     gl_Position = lineOrigin;
     depth       = 0;
     hitDepth    = input_vertices[0].depth;
