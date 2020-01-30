@@ -204,7 +204,7 @@ void DepthImageProjector::Impl::project(cv::Mat& dest, const cv::Mat& color, con
         std::array<float, 4> normalized_camera_pos = {
           depthToMap_[12] / gridMapResolution_ / gridMapWidth_ * 2,
           depthToMap_[13] / gridMapResolution_ / gridMapHeight_ * 2,
-          depthToMap_[14] / gridMapLayerHeight_ / 2,
+          depthToMap_[14] / gridMapLayerHeight_ * 2,
           depthToMap_[15]};
 
         //glUniform2f(glGetUniformLocation(program_.get(), "colorSize"), colorWidth_, colorHeight_);
