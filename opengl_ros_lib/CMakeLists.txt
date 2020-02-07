@@ -126,6 +126,7 @@ add_library(opengl_ros_lib
   src/simple_renderer.cpp
   src/opengl_context.cpp
   src/depth_image_projector.cpp
+  src/object_position_extractor.cpp
 )
 
 ## Add cmake target dependencies of the library
