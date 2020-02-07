@@ -45,10 +45,9 @@ void main(void)
     );
     float depth = texelFetch(depthTexture, depthUV, 0).x * depthUnit; //convert to meter scale
 
+    //If valid depth is not measured at that pixel, treat as maximum depth is measured
     if (depth < validDepthInMeter.x || validDepthInMeter.y < depth)
-    {
-        depth = validDepthInMeter.y; //set to the max value
-    }
+        depth = validDepthInMeter.y;
 
     //Now, convert image pixel (ix, iy, iz) to point in the optical frame (px, py, pz).
     //First, calculate px/pz and px/pz from ix/iz and iy/iz using projection matrix. 
@@ -66,7 +65,7 @@ void main(void)
     //Projecting the point to the occupancy grid plane, in top down orthognal projection
     output_vertex.position = vec4(
         p.x / gridMapResolution / gridMapSize.x * 2,     //convert to -1 to 1
-        p.y / gridMapResolution / gridMapSize.y * 2,     //set the origin on the bottom and flip upside down
+        p.y / gridMapResolution / gridMapSize.y * 2,     //set the origin at the center and flip upside down
         p.z / (gridMapLayerHeight / 2),                  //mapping -height/2 to height/2, to -1 to 1
         1.0
     );

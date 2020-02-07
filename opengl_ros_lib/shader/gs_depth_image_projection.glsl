@@ -11,8 +11,8 @@ in vertex
     float depth;
 } input_vertices[1];
 
-out float depth;
-out float hitDepth;
+out float depth;    //depth value of the pixel on the line
+out float hitDepth; //depth value of the end of the line
 
 void main(void)
 {

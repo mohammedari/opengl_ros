@@ -37,7 +37,7 @@ void main(void)
         accumulatedProbability = gridMapAccumulationWeight;
 
     //store accumulated value in R channel
-    //store 1.0 in G channel if the pixel is on the line
+    //store 1.0 in G channel if valid depth is measured at the line
     //always store 1.0 in B channel 
     fragmentColor = vec3(accumulatedProbability, validDepthMeasured, 1.0); 
 }
