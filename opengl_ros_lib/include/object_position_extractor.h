@@ -28,7 +28,9 @@ public:
         const std::array<float, 2> colorFocalLength, const std::array<float, 2> colorCenter, 
         const std::array<float, 2> depthFocalLength, const std::array<float, 2> depthCenter, 
         const std::array<float, 16> depthToColor);
-    void extract(cv::Mat& dest, const cv::Mat& color, const cv::Mat& depth);
+    void updateExtractionParameter(
+        float thresholdL, float svmCoefA, float svmCoefB, float svmIntercept);
+    void extract(cv::Mat& positionOut, cv::Mat& colorOut, const cv::Mat& color, const cv::Mat& depth);
 
     ObjectPositionExtractor(const ObjectPositionExtractor&) = delete;
     ObjectPositionExtractor& operator=(const ObjectPositionExtractor&) = delete;

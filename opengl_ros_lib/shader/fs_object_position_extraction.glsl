@@ -12,7 +12,8 @@ in vec3 positionInMeter;
 in float depthInMeter
 in vec2 colorUV;
 
-out vec3 fragmentColor;
+layout(location = 0) out vec3 positionOutput;
+layout(location = 1) out vec3 colorOutput;
 
 vec3 rgb2xyz(vec3 rgb)
 {
@@ -72,6 +73,6 @@ void main(void)
         discard;
 
     //output the position of the pixel in 3D
-    //TODO for writing smaller resolution texture, it would be better to blend in ADD mode
-    fragmentColor = positionInMeter;
+    positionOutput = positionInMeter;
+    colorOutput = color;
 }

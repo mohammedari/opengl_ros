@@ -31,19 +31,9 @@ struct ObjectPositionExtractor::Impl
     std::vector<Vertex> verticies_;
     cgs::gl::VertexBuffer<Vertex> vbo_;
     cgs::gl::VertexArray vao_;
-    cgs::gl::Texture2D colorIn_, depthIn_, textureOut_;
+    cgs::gl::Texture2D colorIn_, depthIn_, positionOut_, colorOut_;
     cgs::gl::Sampler colorSampler_, depthSampler_;
     cgs::gl::FrameBuffer fbo_;
-
-    //not const parameters
-    std::array<float, 2> colorFocalLength_ = {};
-    std::array<float, 2> colorCenter_      = {}; 
-    std::array<float, 2> depthFocalLength_ = {};
-    std::array<float, 2> depthCenter_      = {}; 
-    std::array<float, 16> depthToColor_    = {{0.0f, -1.0f,  0.0f, 0.0f,
-                                               0.0f,  0.0f, -1.0f, 0.0f,
-                                               1.0f,  0.0f,  0.0f, 0.0f,
-                                               0.0f,  0.0f,  0.0f, 1.0f}};
 
     Impl(
         int colorWidth, int colorHeight, 
@@ -57,7 +47,9 @@ struct ObjectPositionExtractor::Impl
         const std::array<float, 2> colorFocalLength, const std::array<float, 2> colorCenter, 
         const std::array<float, 2> depthFocalLength, const std::array<float, 2> depthCenter, 
         const std::array<float, 16> depthToColor);
-    void extract(cv::Mat& dest, const cv::Mat& color, const cv::Mat& depth);
+    void updateExtractionParameter(
+        float thresholdL, float svmCoefA, float svmCoefB, float svmIntercept);
+    void extract(cv::Mat& positionOut, cv::Mat& colorOut, const cv::Mat& color, const cv::Mat& depth);
 };
 
 ObjectPositionExtractor::Impl::Impl(
@@ -87,10 +79,11 @@ ObjectPositionExtractor::Impl::Impl(
     vbo_(verticies_, GL_STATIC_DRAW), 
     colorIn_(GL_SRGB8, colorWidth_, colorHeight_),  
     depthIn_(GL_R16UI, depthWidth_, depthHeight_),  
-    textureOut_(GL_RGBA32F, outputWidth_, outputHeight_), 
+    positionOut_(GL_RGBA32F, outputWidth_, outputHeight_), 
+    colorOut_(GL_SRGB8, outputWidth_, outputHeight_),  
     colorSampler_(GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_BORDER, GL_CLAMP_TO_BORDER),
     depthSampler_(GL_NEAREST, GL_NEAREST, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE),
-    fbo_(textureOut_)
+    fbo_(positionOut_, colorOut_)
 {
     //Shaders setup
     program_.use();
@@ -111,12 +104,20 @@ void ObjectPositionExtractor::Impl::updateProjectionMatrix(
     const std::array<float, 2> depthFocalLength, const std::array<float, 2> depthCenter, 
     const std::array<float, 16> depthToColor)
 {
-    colorFocalLength_ = colorFocalLength;
-    depthFocalLength_ = depthFocalLength;
-    colorCenter_ = colorCenter;
-    depthCenter_ = depthCenter;
-    depthToColor_ = depthToColor;
+    glUniform2fv(glGetUniformLocation(program_.get(), "colorFocalLength")  , 1, colorFocalLength.data());
+    glUniform2fv(glGetUniformLocation(program_.get(), "colorCenter")       , 1, colorCenter.data());
+    glUniform2fv(glGetUniformLocation(program_.get(), "depthFocalLength")  , 1, depthFocalLength.data());
+    glUniform2fv(glGetUniformLocation(program_.get(), "depthCenter")       , 1, depthCenter.data());
+    glUniformMatrix4fv(glGetUniformLocation(program_.get(), "depthToColor"), 1, false, depthToColor.data());
+}
 
+void ObjectPositionExtractor::Impl::updateExtractionParameter(
+    float thresholdL, float svmCoefA, float svmCoefB, float svmIntercept)
+{
+    glUniform1f(glGetUniformLocation(program_.get(), "thresholdL")  , thresholdL);
+    glUniform1f(glGetUniformLocation(program_.get(), "svmCoefA")    , svmCoefA);
+    glUniform1f(glGetUniformLocation(program_.get(), "svmCoefB")    , svmCoefB);
+    glUniform1f(glGetUniformLocation(program_.get(), "svmIntercept"), svmIntercept);
 }
 
 static bool validateImage(const cv::Mat& image, int width, int height, int type)
@@ -134,18 +135,12 @@ static bool validateImage(const cv::Mat& image, int width, int height, int type)
     return true;
 }
 
-void ObjectPositionExtractor::Impl::extract(cv::Mat& dest, const cv::Mat& color, const cv::Mat& depth)
+void ObjectPositionExtractor::Impl::extract(cv::Mat& positionOut, cv::Mat& colorOut, const cv::Mat& color, const cv::Mat& depth)
 {
-    if (!validateImage(dest, outputWidth_, outputHeight_, CV_32FC4)) return;
-    if (!validateImage(color, colorWidth_, colorHeight_, CV_8UC3)) return;
-    if (!validateImage(depth, depthWidth_, depthHeight_, CV_16UC1)) return;
-
-    //Update parameters
-    glUniform2fv(glGetUniformLocation(program_.get(), "colorFocalLength")  , 1, colorFocalLength_.data());
-    glUniform2fv(glGetUniformLocation(program_.get(), "colorCenter")       , 1, colorCenter_.data());
-    glUniform2fv(glGetUniformLocation(program_.get(), "depthFocalLength")  , 1, depthFocalLength_.data());
-    glUniform2fv(glGetUniformLocation(program_.get(), "depthCenter")       , 1, depthCenter_.data());
-    glUniformMatrix4fv(glGetUniformLocation(program_.get(), "depthToColor"), 1, false, depthToColor_.data());
+    if (!validateImage(positionOut, outputWidth_, outputHeight_, CV_32FC4)) return;
+    if (!validateImage(colorOut   , outputWidth_, outputHeight_, CV_8UC3)) return;
+    if (!validateImage(color      , colorWidth_ , colorHeight_ , CV_8UC3)) return;
+    if (!validateImage(depth      , depthWidth_ , depthHeight_ , CV_16UC1)) return;
 
     //Perform rendering
     colorIn_.write(GL_RGB, GL_UNSIGNED_BYTE, color.data);
@@ -167,7 +162,8 @@ void ObjectPositionExtractor::Impl::extract(cv::Mat& dest, const cv::Mat& color,
     glFinish();
 
     //Read result
-    textureOut_.read(GL_RGBA, GL_FLOAT, dest.data, dest.rows * dest.cols * dest.channels());
+    positionOut_.read(GL_RGBA, GL_FLOAT, positionOut.data, positionOut.rows * positionOut.cols * positionOut.channels());
+    colorOut_.read(GL_RGB, GL_UNSIGNED_BYTE, colorOut.data, colorOut.rows * colorOut.cols * colorOut.channels());
 }
 
 ObjectPositionExtractor::ObjectPositionExtractor(
@@ -211,7 +207,14 @@ void ObjectPositionExtractor::updateProjectionMatrix(
         depthToColor);
 }
 
-void ObjectPositionExtractor::extract(cv::Mat& dest, const cv::Mat& color, const cv::Mat& depth)
+void ObjectPositionExtractor::updateExtractionParameter(
+    float thresholdL, float svmCoefA, float svmCoefB, float svmIntercept)
 {
-    impl_->extract(dest, color, depth);
+    impl_->updateExtractionParameter(
+        thresholdL, svmCoefA, svmCoefB, svmIntercept);
+}
+
+void ObjectPositionExtractor::extract(cv::Mat& positionOut, cv::Mat& colorOut, const cv::Mat& color, const cv::Mat& depth)
+{
+    impl_->extract(positionOut, colorOut, color, depth);
 }

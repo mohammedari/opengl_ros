@@ -138,6 +138,7 @@ include_directories(
 add_executable(simple_renderer src/simple_renderer_node.cpp src/simple_renderer_nodecore.cpp)
 add_executable(color_extraction_cpu src/color_extraction_cpu_node.cpp src/color_extraction_cpu_nodecore.cpp)
 add_executable(depth_image_projector src/depth_image_projector_node.cpp src/depth_image_projector_nodecore.cpp)
+add_executable(object_position_extractor src/object_position_extractor_node.cpp src/object_position_extractor_nodecore.cpp)
 
 ## Add cmake target dependencies of the executable
 ## same as for the library above
@@ -152,6 +153,10 @@ target_link_libraries(color_extraction_cpu
   ${catkin_LIBRARIES}
 )
 target_link_libraries(depth_image_projector
+  ${catkin_LIBRARIES}
+  ${opengl_ros_lib_LIBRARIES}
+)
+target_link_libraries(object_position_extractor
   ${catkin_LIBRARIES}
   ${opengl_ros_lib_LIBRARIES}
 )
