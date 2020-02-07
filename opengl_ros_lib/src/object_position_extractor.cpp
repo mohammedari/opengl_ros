@@ -162,7 +162,7 @@ void ObjectPositionExtractor::Impl::extract(cv::Mat& positionOut, cv::Mat& color
     glFinish();
 
     //Read result
-    positionOut_.read(GL_RGBA, GL_FLOAT, positionOut.data, positionOut.rows * positionOut.cols * positionOut.channels());
+    positionOut_.read(GL_RGBA, GL_FLOAT, positionOut.data, positionOut.rows * positionOut.cols * positionOut.channels() * 4);
     colorOut_.read(GL_RGB, GL_UNSIGNED_BYTE, colorOut.data, colorOut.rows * colorOut.cols * colorOut.channels());
 }
 

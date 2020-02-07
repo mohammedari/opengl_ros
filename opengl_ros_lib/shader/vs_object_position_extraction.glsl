@@ -27,8 +27,8 @@ void main(void)
     //Sampling depth from the texture
     //XY coordinate and texture UV mathes in OpenGL 
     ivec2 depthUV = ivec2(
-        input_pixel.x,
-        input_pixel.y
+        inputPixel.x,
+        inputPixel.y
     );
     float depth = texelFetch(depthTexture, depthUV, 0).x * depthUnit; //convert to meter scale
 
@@ -37,23 +37,23 @@ void main(void)
     //[ix]   [fx  0  cx][px]
     //[iy] = [ 0 fy  cy][py]
     //[iz]   [ 0  0   1][pz]
-    vec2  pxy_z  = (input_pixel.xy - depthCenter.xy) / depthFocalLength.xy;
+    vec2  pxy_z  = (inputPixel.xy - depthCenter.xy) / depthFocalLength.xy;
     float pz = depth;
     vec4  point  = vec4(pxy_z * pz, pz, 1.0);
 
     //Ouptut vertex coordinate
     //Just normalizing the pixel coordinate in the depth image
     gl_Position = vec4(
-        (input_pixel.x - depthCenter.x) / depthSize.x * 2, //convert to -1 to 1
-        (input_pixel.y - depthCenter.y) / depthSize.y * 2, //set the origin at the center
+        (inputPixel.x - depthCenter.x) / depthSize.x * 2, //convert to -1 to 1
+        (inputPixel.y - depthCenter.y) / depthSize.y * 2, //set the origin at the center
         0.0, 
         1.0
     );
-    positionInMeter = point;
+    positionInMeter = point.xyz;
     depthInMeter = depth;
 
     //Calculate coordinate in color image
-    vec4 colorPoint = depthToColor * vec4(point, 1);
+    vec4 colorPoint = depthToColor * point;
     mat3 colorProjection = mat3(
         colorFocalLength.x,                  0, 0, 
                          0, colorFocalLength.y, 0, 

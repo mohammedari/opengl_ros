@@ -5,15 +5,15 @@ uniform vec2 validDepthInMeter;
 
 uniform float thresholdL;
 uniform float svmCoefA;
-uniform float svmCoefA;
+uniform float svmCoefB;
 uniform float svmIntercept;
 
 in vec3 positionInMeter; 
-in float depthInMeter
+in float depthInMeter;
 in vec2 colorUV;
 
-layout(location = 0) out vec3 positionOutput;
-layout(location = 1) out vec3 colorOutput;
+layout(location = 0) out vec4 positionOutput;
+layout(location = 1) out vec4 colorOutput;
 
 vec3 rgb2xyz(vec3 rgb)
 {
@@ -73,6 +73,6 @@ void main(void)
         discard;
 
     //output the position of the pixel in 3D
-    positionOutput = positionInMeter;
-    colorOutput = color;
+    positionOutput = vec4(positionInMeter, 1.0);
+    colorOutput = vec4(color, 1.0);
 }

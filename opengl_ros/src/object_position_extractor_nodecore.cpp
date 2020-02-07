@@ -18,30 +18,30 @@ ObjectPositionExtractorNode::ObjectPositionExtractorNode(const ros::NodeHandle& 
     nh_.param<std::string>("depth_frame_id", depth_frame_id_, "d435_depth_optical");
     nh_.param<double>("tf_wait_duration", tf_wait_duration_, 0.1);
 
-    int colorWidth, colorHeight;
-    nh_.param<int>("colorWidth" , colorWidth , 640);
-    nh_.param<int>("colorHeight", colorHeight, 360);
-    int depthWidth, depthHeight;
-    nh_.param<int>("depthWidth" , depthWidth , 640);
-    nh_.param<int>("depthHeight", depthHeight, 360);
-    int outputWidth, outputHeight;
-    nh_.param<int>("outputWidth" , outputWidth , 320);
-    nh_.param<int>("outputHeight", outputHeight, 180);
+    int color_width, color_height;
+    nh_.param<int>("color_width" , color_width , 640);
+    nh_.param<int>("color_height", color_height, 360);
+    int depth_width, depth_height;
+    nh_.param<int>("depth_width" , depth_width , 640);
+    nh_.param<int>("depth_height", depth_height, 360);
+    int output_width, output_height;
+    nh_.param<int>("output_width" , output_width , 320);
+    nh_.param<int>("output_height", output_height, 180);
 
-    double minDepth, maxDepth;
-    nh_.param<double>("minDepth", minDepth, 0.105);
-    nh_.param<double>("maxDepth", maxDepth, 10);
+    double min_depth, max_depth;
+    nh_.param<double>("min_depth", min_depth, 0.105);
+    nh_.param<double>("max_depth", max_depth, 10);
 
-    std::string vertexShader, geometryShader, fragmentShader, vertexShaderScaling, fragmentShaderScaling;
-    nh_.param<std::string>("vertex_shader"   , vertexShader  , "");
-    nh_.param<std::string>("fragment_shader" , fragmentShader, "");
+    std::string vertex_shader, fragment_shader;
+    nh_.param<std::string>("vertex_shader"   , vertex_shader  , "");
+    nh_.param<std::string>("fragment_shader" , fragment_shader, "");
 
     extractor_ = std::make_unique<cgs::ObjectPositionExtractor>(
-        colorWidth, colorHeight, 
-        depthWidth, depthHeight, 
-        outputWidth, outputHeight, 
-        minDepth, maxDepth, 
-        vertexShader, fragmentShader
+        color_width, color_height, 
+        depth_width, depth_height, 
+        output_width, output_height, 
+        min_depth, max_depth, 
+        vertex_shader, fragment_shader
     );
 
     float threshold_l, svm_coef_a, svm_coef_b, svm_intercept;
@@ -52,8 +52,8 @@ ObjectPositionExtractorNode::ObjectPositionExtractorNode(const ros::NodeHandle& 
 
     extractor_->updateExtractionParameter(threshold_l, svm_coef_a, svm_coef_b, svm_intercept);
 
-    positionOut_.create(outputWidth, outputHeight, CV_32FC4);
-    colorOut_.create(outputWidth, outputHeight, CV_8UC3);
+    positionOut_.create(output_height, output_width, CV_32FC4);
+    colorOut_.create(output_height, output_width, CV_8UC3);
 }
 
 void ObjectPositionExtractorNode::colorCallback(const sensor_msgs::Image::ConstPtr& imageMsg, const sensor_msgs::CameraInfoConstPtr & cameraInfoMsg)
@@ -115,7 +115,7 @@ void ObjectPositionExtractorNode::depthCallback(const sensor_msgs::Image::ConstP
     //Publish debug image
     cv_bridge::CvImage outImage;;
     outImage.header = cv_ptr->header;
-    outImage.encoding = cv_ptr->encoding;
+    outImage.encoding = "rgb8";
     outImage.image = colorOut_;
     imagePublisher_.publish(outImage.toImageMsg());
 

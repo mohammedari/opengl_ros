@@ -1,0 +1,96 @@
+<?xml version="1.0"?>
+<launch>
+  <arg name="bag_prefix"                   default="/mnt/log/d435"/>
+  <arg name="depth_width"                  default="640"/>
+  <arg name="depth_height"                 default="360"/>
+  <arg name="output_width"                 default="320"/>
+  <arg name="output_height"                default="180"/>
+  <arg name="depth_min"                    default="0.105"/>
+  <arg name="depth_max"                    default="10"/>
+  <arg name="depth_hit_threshold"          default="0.95"/>
+  <arg name="depth_unknown_color"          default="0"/> <!-- 0 to 255 -->
+  <arg name="frame_rate"                   default="30"/>
+
+  <arg name="d435"                         default="false"/>
+  <arg name="record"                       default="false"/>
+
+  <group ns="d435" if="$(arg d435)">
+    <node pkg="nodelet" type="nodelet" name="realsense2_camera_manager" args="manager" output="screen"/>
+    <node pkg="nodelet" type="nodelet" name="realsense2_camera" args="load realsense2_camera/RealSenseNodeFactory realsense2_camera_manager">
+      <param name="enable_pointcloud"        type="bool" value="false"/>
+      <param name="enable_sync"              type="bool" value="false"/>
+      <param name="align_depth"              type="bool" value="false"/>
+      <param name="enable_fisheye"           type="bool" value="false"/>
+      <param name="enable_imu"               type="bool" value="false"/>
+  
+      <param name="enable_depth"             type="bool" value="true"/>
+      <param name="enable_infra1"            type="bool" value="false"/>
+      <param name="enable_infra2"            type="bool" value="false"/>
+      <param name="enable_color"             type="bool" value="true"/>
+  
+      <param name="depth_width"              type="int"  value="$(arg depth_width)"/>
+      <param name="depth_height"             type="int"  value="$(arg depth_height)"/>
+      <param name="depth_fps"                type="int"  value="$(arg frame_rate)"/>
+      <param name="color_width"              type="int"  value="$(arg depth_width)"/>
+      <param name="color_height"             type="int"  value="$(arg depth_height)"/>
+      <param name="color_fps"                type="int"  value="$(arg frame_rate)"/>
+      <param name="base_frame_id"            type="str"  value="d435_link"/>
+      <param name="depth_frame_id"           type="str"  value="d435_depth_link"/>
+      <param name="depth_optical_frame_id"   type="str"  value="d435_depth_optical"/>
+    </node>
+  </group>
+
+  <node pkg="opengl_ros" type="object_position_extractor"
+    name="object_position_extractor" output="screen">
+    <param name="color_frame_id"            value="d435_color_optical"/>
+    <param name="depth_frame_id"            value="d435_depth_optical"/>
+    <param name="tf_wait_duration"          value="0.1"/>
+
+    <param name="color_width"               value="$(arg depth_width)"/>
+    <param name="color_height"              value="$(arg depth_height)"/>
+    <param name="depth_width"               value="$(arg depth_width)"/>
+    <param name="depth_height"              value="$(arg depth_height)"/>
+    <param name="output_width"              value="$(arg output_width)"/>
+    <param name="output_height"             value="$(arg output_height)"/>
+
+    <param name="min_depth"                 value="$(arg depth_min)"/>
+    <param name="max_depth"                 value="$(arg depth_max)"/>
+
+    <param name="threshold_l"               value="50"/>
+    <param name="svm_coef_a"                value="0.266602955271"/>
+    <param name="svm_coef_b"                value="0.0444656815907"/>
+    <param name="svm_intercept"             value="-44.3271851592"/>
+
+    <param name="vertex_shader"             value="$(find opengl_ros_lib)/shader/vs_object_position_extraction.glsl"/>
+    <param name="fragment_shader"           value="$(find opengl_ros_lib)/shader/fs_object_position_extraction.glsl"/>
+
+    <remap from="color_in"        to="/d435/color/image_raw"/>
+    <remap from="depth_in"        to="/d435/depth/image_rect_raw"/>
+    <remap from="image_out"       to="/object_extraction"/>
+  </node>
+
+  <node pkg="image_view" type="image_view" name="viewer_depth">
+    <remap from="image" to="/d435/depth/image_rect_raw"/>
+  </node>
+
+  <node pkg="image_view" type="image_view" name="viewer_color">
+    <remap from="image" to="/d435/color/image_raw"/>
+  </node>
+
+  <node pkg="image_view" type="image_view" name="viewer_out">
+    <remap from="image" to="/object_extraction"/>
+  </node>
+
+  <node pkg="rosbag" type="record" name="logger" if="$(arg d435)"
+    args="-o $(arg bag_prefix) 
+          --lz4
+          -a
+          -x /(d435|occupancy_grid_image|viewer_depth|viewer_color|viewer_out)/(.*)
+          /d435/color/camera_info
+          /d435/color/image_raw
+          /d435/depth/camera_info
+          /d435/depth/image_rect_raw
+          /d435/extrinsics/depth_to_color
+          /occupancy_grid_image
+    "/>
+</launch>
