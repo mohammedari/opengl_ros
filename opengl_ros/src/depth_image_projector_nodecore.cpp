@@ -131,6 +131,7 @@ void DepthImageProjectorNode::depthCallback(const sensor_msgs::Image::ConstPtr& 
     catch (tf::TransformException& ex)
     {
         ROS_WARN("Transform Exception in depthCallback(). %s", ex.what());
+        return;
     }
 
     //Update projector parameters with camera info
