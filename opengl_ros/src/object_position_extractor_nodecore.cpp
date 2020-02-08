@@ -27,6 +27,7 @@ ObjectPositionExtractorNode::ObjectPositionExtractorNode(const ros::NodeHandle& 
     //Other parameters
     nh_.param<double>("object_separation_distance", object_separation_distance_, 2);
     nh_.param<int>("min_pixel_count_for_detection", min_pixel_count_for_detection_, 10);
+    nh_.param<double>("sigma_coefficient_", sigma_coefficient_, 2);
 
     //OpenGL parameters
     int color_width, color_height;
@@ -79,7 +80,7 @@ void ObjectPositionExtractorNode::colorCallback(const sensor_msgs::Image::ConstP
         return;
     }
 
-    latestColorCameraInfoPtr = cameraInfoMsg;
+    latestColorCameraInfo = *(cameraInfoMsg.get());
 }
 
 static std::tuple<int, double> findNearest(const std::vector<ObjectPositionExtractorNode::ObjectCandidate>& candidates, const Eigen::Vector3d point)
@@ -130,8 +131,8 @@ void ObjectPositionExtractorNode::depthCallback(const sensor_msgs::Image::ConstP
 
     //Update projector parameters with camera info
     extractor_->updateProjectionMatrix(
-        {static_cast<float>(latestColorCameraInfoPtr->K[0]), static_cast<float>(latestColorCameraInfoPtr->K[4])}, 
-        {static_cast<float>(latestColorCameraInfoPtr->K[2]), static_cast<float>(latestColorCameraInfoPtr->K[5])}, 
+        {static_cast<float>(latestColorCameraInfo.K[0]), static_cast<float>(latestColorCameraInfo.K[4])}, 
+        {static_cast<float>(latestColorCameraInfo.K[2]), static_cast<float>(latestColorCameraInfo.K[5])}, 
         {static_cast<float>(cameraInfoMsg->K[0])           , static_cast<float>(cameraInfoMsg->K[4])}, 
         {static_cast<float>(cameraInfoMsg->K[2])           , static_cast<float>(cameraInfoMsg->K[5])}, 
         latestDepthToColor_
@@ -192,14 +193,16 @@ void ObjectPositionExtractorNode::depthCallback(const sensor_msgs::Image::ConstP
     cgs_nav_msgs::ObjectArray objectArray;
     for (const auto& candidate : candidates)
     {
+        auto sigma = candidate.variance();
 
-        if (candidate.count() < min_pixel_count_for_detection_)
+        auto count = candidate.count(sigma_coefficient_ * sigma);
+        if (count < min_pixel_count_for_detection_)
             continue;
 
-        ROS_INFO_STREAM("detected object (" << candidate.count() << "px)");
-        auto candidate_pose = candidate.mean();
-        auto candidate_size = candidate.size();
+        ROS_INFO_STREAM("detected object (" << count << "/" << candidate.count() << "px)");
 
+        auto candidate_pose = candidate.mean(sigma_coefficient_ * sigma);
+        auto candidate_size = candidate.size(sigma_coefficient_ * sigma);
         geometry_msgs::Pose pose;
         {
             pose.position.x = candidate_pose.x();
@@ -226,7 +229,7 @@ void ObjectPositionExtractorNode::depthCallback(const sensor_msgs::Image::ConstP
         o.pose = pose;
         o.twist = zero_twist;
         o.size = size;
-        o.confidence = 1.0; //TODO ちゃんとconfidenceを設定する
+        o.confidence = static_cast<double>(count) / candidate.count(); //set number of pixels in threshold as confidence
 
         objectArray.objects.push_back(o);
     }

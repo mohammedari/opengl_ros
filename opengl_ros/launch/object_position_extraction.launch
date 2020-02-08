@@ -1,19 +1,30 @@
 <?xml version="1.0"?>
 <launch>
-  <arg name="bag_prefix"                   default="/mnt/log/d435"/>
-  <arg name="depth_width"                  default="640"/>
-  <arg name="depth_height"                 default="360"/>
-  <arg name="output_width"                 default="320"/>
-  <arg name="output_height"                default="180"/>
-  <arg name="depth_min"                    default="0.105"/>
-  <arg name="depth_max"                    default="10"/>
-  <arg name="depth_hit_threshold"          default="0.95"/>
-  <arg name="depth_unknown_color"          default="0"/> <!-- 0 to 255 -->
-  <arg name="frame_rate"                   default="30"/>
+  <arg name="bag_prefix"                    default="/mnt/log/d435"/>
+  <arg name="depth_width"                   default="640"/>
+  <arg name="depth_height"                  default="360"/>
+  <arg name="output_width"                  default="320"/>
+  <arg name="output_height"                 default="180"/>
+  <arg name="frame_rate"                    default="30"/>
 
-  <arg name="d435"                         default="false"/>
-  <arg name="viewer"                       default="false"/>
-  <arg name="record"                       default="false"/>
+  <!-- valid depth range of D435 -->
+  <arg name="depth_min"                     default="0.105"/>
+  <arg name="depth_max"                     default="10"/>
+
+  <!-- color extraction parameter -->
+  <arg name="threshold_l"                   default="50"/>
+  <arg name="svm_coef_a"                    default="0.266602955271"/>
+  <arg name="svm_coef_b"                    default="0.0444656815907"/>
+  <arg name="svm_intercept"                 default="-44.3271851592"/>
+
+  <!-- object position extraction parameter -->
+  <arg name="object_separation_distance"    default="1"/>
+  <arg name="min_pixel_count_for_detection" default="15"/>
+  <arg name="sigma_coefficient"             default="2"/>
+
+  <arg name="d435"                          default="false"/>
+  <arg name="viewer"                        default="false"/>
+  <arg name="record"                        default="false"/>
 
   <group ns="d435" if="$(arg d435)">
     <node pkg="nodelet" type="nodelet" name="realsense2_camera_manager" args="manager" output="screen"/>
@@ -57,13 +68,14 @@
     <param name="min_depth"                 value="$(arg depth_min)"/>
     <param name="max_depth"                 value="$(arg depth_max)"/>
 
-    <param name="threshold_l"               value="50"/>
-    <param name="svm_coef_a"                value="0.266602955271"/>
-    <param name="svm_coef_b"                value="0.0444656815907"/>
-    <param name="svm_intercept"             value="-44.3271851592"/>
+    <param name="threshold_l"               value="$(arg threshold_l)"/>
+    <param name="svm_coef_a"                value="$(arg svm_coef_a)"/>
+    <param name="svm_coef_b"                value="$(arg svm_coef_b)"/>
+    <param name="svm_intercept"             value="$(arg svm_intercept)"/>
 
-    <param name="object_separation_distance"    value="1"/>
-    <param name="min_pixel_count_for_detection" value="15"/>
+    <param name="object_separation_distance"    value="$(arg object_separation_distance)"/>
+    <param name="min_pixel_count_for_detection" value="$(arg min_pixel_count_for_detection)"/>
+    <param name="sigma_coefficient"             value="$(arg sigma_coefficient)"/>
 
     <param name="vertex_shader"             value="$(find opengl_ros_lib)/shader/vs_object_position_extraction.glsl"/>
     <param name="fragment_shader"           value="$(find opengl_ros_lib)/shader/fs_object_position_extraction.glsl"/>

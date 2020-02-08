@@ -111,7 +111,7 @@ find_package(Eigen3 REQUIRED)
 catkin_package(
 #  INCLUDE_DIRS include
 #  LIBRARIES opengl_ros
-  CATKIN_DEPENDS opengl_ros_lib cgs_nav_msgs
+   CATKIN_DEPENDS roscpp std_msgs sensor_msgs cgs_nav_msgs tf image_transport cv_bridge opengl_ros_lib 
 #  DEPENDS system_lib
 )
 

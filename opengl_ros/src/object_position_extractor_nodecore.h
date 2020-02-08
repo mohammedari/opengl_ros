@@ -40,10 +40,11 @@ class ObjectPositionExtractorNode
     cv::Mat positionOut_, colorOut_;
     bool depthToColorArrived_ = false;
     std::array<float, 16> latestDepthToColor_;
-    cv_bridge::CvImageConstPtr      latestColorImagePtr;
-    sensor_msgs::CameraInfoConstPtr latestColorCameraInfoPtr;
+    cv_bridge::CvImageConstPtr latestColorImagePtr;
+    sensor_msgs::CameraInfo    latestColorCameraInfo;
     double object_separation_distance_;
     int min_pixel_count_for_detection_;
+    double sigma_coefficient_;
 
     void colorCallback(const sensor_msgs::Image::ConstPtr& imageMsg, const sensor_msgs::CameraInfoConstPtr & cameraInfoMsg);
     void depthCallback(const sensor_msgs::Image::ConstPtr& imageMsg, const sensor_msgs::CameraInfoConstPtr & cameraInfoMsg);
@@ -67,13 +68,54 @@ public:
             return sum / points.size();
         }
 
+        Eigen::Vector3d mean(double threshold) const
+        {
+            auto m = mean();
+
+            int count = 0;
+            Eigen::Vector3d sum_in_variance = {};
+            for (const auto p : points)
+                if ((p - m).norm() < threshold)
+                {
+                    sum_in_variance += p;
+                    ++count;
+                }
+
+            return sum_in_variance / count;
+        }
+
+        double variance() const
+        {
+            auto m = mean();
+            double squared_diff_sum = 0;
+            for (const auto p : points)
+            {
+                squared_diff_sum += (p - m).dot(p - m);
+            }
+
+            return sqrt(squared_diff_sum / points.size());
+        }
+
         int count() const
         {
             return points.size();
         }
 
-        Eigen::Vector3d size() const 
+        int count(double threshold) const
         {
+            auto m = mean();
+
+            int count = 0;
+            for (const auto p : points)
+                if ((p - m).norm() < threshold)
+                    ++count;
+
+            return count;
+        }
+
+        Eigen::Vector3d size(double threshold = std::numeric_limits<double>::infinity()) const 
+        {
+            auto m = mean();
             double min_x = std::numeric_limits<double>::infinity();
             double min_y = std::numeric_limits<double>::infinity();
             double min_z = std::numeric_limits<double>::infinity();
@@ -82,6 +124,9 @@ public:
             double max_z = -std::numeric_limits<double>::infinity();
             for (const auto p : points)
             {
+                if (threshold < (p - m).norm())
+                    continue;
+
                 if (p.x() < min_x) min_x = p.x();
                 if (p.y() < min_y) min_y = p.y();
                 if (p.z() < min_z) min_z = p.z();
