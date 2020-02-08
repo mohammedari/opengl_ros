@@ -85,7 +85,7 @@ void DepthImageProjectorNode::colorCallback(const sensor_msgs::Image::ConstPtr& 
         return;
     }
 
-    latestColorCameraInfoPtr = cameraInfoMsg;
+    latestColorCameraInfo = *(cameraInfoMsg.get());
 }
 
 void DepthImageProjectorNode::depthCallback(const sensor_msgs::Image::ConstPtr& imageMsg, const sensor_msgs::CameraInfoConstPtr & cameraInfoMsg)
@@ -136,8 +136,8 @@ void DepthImageProjectorNode::depthCallback(const sensor_msgs::Image::ConstPtr& 
 
     //Update projector parameters with camera info
     projector_->updateProjectionMatrix(
-        {static_cast<float>(latestColorCameraInfoPtr->K[0]), static_cast<float>(latestColorCameraInfoPtr->K[4])}, 
-        {static_cast<float>(latestColorCameraInfoPtr->K[2]), static_cast<float>(latestColorCameraInfoPtr->K[5])}, 
+        {static_cast<float>(latestColorCameraInfo.K[0]), static_cast<float>(latestColorCameraInfo.K[4])}, 
+        {static_cast<float>(latestColorCameraInfo.K[2]), static_cast<float>(latestColorCameraInfo.K[5])}, 
         {static_cast<float>(cameraInfoMsg->K[0])           , static_cast<float>(cameraInfoMsg->K[4])}, 
         {static_cast<float>(cameraInfoMsg->K[2])           , static_cast<float>(cameraInfoMsg->K[5])}, 
         latestDepthToColor_,

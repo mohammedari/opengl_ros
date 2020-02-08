@@ -42,8 +42,8 @@ class DepthImageProjectorNode
     std::unique_ptr<cgs::DepthImageProjector> projector_;
     cv::Mat output_;
 
-    cv_bridge::CvImageConstPtr      latestColorImagePtr;
-    sensor_msgs::CameraInfoConstPtr latestColorCameraInfoPtr;
+    cv_bridge::CvImageConstPtr latestColorImagePtr;
+    sensor_msgs::CameraInfo    latestColorCameraInfo;
     void colorCallback(const sensor_msgs::Image::ConstPtr& imageMsg, const sensor_msgs::CameraInfoConstPtr & cameraInfoMsg);
     void depthCallback(const sensor_msgs::Image::ConstPtr& imageMsg, const sensor_msgs::CameraInfoConstPtr & cameraInfoMsg);
     bool depthToColorArrived_ = false;
