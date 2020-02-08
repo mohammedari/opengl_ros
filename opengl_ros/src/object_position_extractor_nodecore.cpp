@@ -1,7 +1,12 @@
 #include "object_position_extractor_nodecore.h"
 
+#include <limits>
+#include <tuple>
 #include <opencv2/opencv.hpp>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.h>
+
+#include <cgs_nav_msgs/Object.h>
+#include <cgs_nav_msgs/ObjectArray.h>
 
 using namespace opengl_ros;
 
@@ -9,15 +14,21 @@ ObjectPositionExtractorNode::ObjectPositionExtractorNode(const ros::NodeHandle& 
     : nh_(nh_private), it_(nh)
 {
     imagePublisher_  = it_.advertise("image_out", 1);
+    objectArrayPublisher_ = nh_.advertise<cgs_nav_msgs::ObjectArray>("objects", 5);
     //TODO synchronize two image topics
     colorSubscriber_ = it_.subscribeCamera("color_in" , 1, &ObjectPositionExtractorNode::colorCallback, this);
     depthSubscriber_ = it_.subscribeCamera("depth_in" , 1, &ObjectPositionExtractorNode::depthCallback, this);
 
-    // frame ids for tf which associates color frame with depth frame
+    //Frame ids for tf which associates color frame with depth frame
     nh_.param<std::string>("color_frame_id", color_frame_id_, "d435_color_optical");
     nh_.param<std::string>("depth_frame_id", depth_frame_id_, "d435_depth_optical");
     nh_.param<double>("tf_wait_duration", tf_wait_duration_, 0.1);
 
+    //Other parameters
+    nh_.param<double>("object_separation_distance", object_separation_distance_, 2);
+    nh_.param<int>("min_pixel_count_for_detection", min_pixel_count_for_detection_, 10);
+
+    //OpenGL parameters
     int color_width, color_height;
     nh_.param<int>("color_width" , color_width , 640);
     nh_.param<int>("color_height", color_height, 360);
@@ -71,6 +82,25 @@ void ObjectPositionExtractorNode::colorCallback(const sensor_msgs::Image::ConstP
     latestColorCameraInfoPtr = cameraInfoMsg;
 }
 
+static std::tuple<int, double> findNearest(const std::vector<ObjectPositionExtractorNode::ObjectCandidate>& candidates, const Eigen::Vector3d point)
+{
+    ROS_ASSERT(candidates.size() > 0);
+
+    int minIndex = 0;
+    double minDistance = std::numeric_limits<double>::infinity();
+    for (int i = 1; i < candidates.size(); ++i)
+    {
+        auto distance = (candidates[i].mean() - point).norm();
+        if (distance < minDistance)
+        {
+            minIndex = i;
+            minDistance = distance;
+        }
+    }
+
+    return std::tie(minIndex, minDistance);
+}
+
 void ObjectPositionExtractorNode::depthCallback(const sensor_msgs::Image::ConstPtr& imageMsg, const sensor_msgs::CameraInfoConstPtr & cameraInfoMsg)
 {
     cv_bridge::CvImageConstPtr cv_ptr;
@@ -119,7 +149,90 @@ void ObjectPositionExtractorNode::depthCallback(const sensor_msgs::Image::ConstP
     outImage.image = colorOut_;
     imagePublisher_.publish(outImage.toImageMsg());
 
-    //TODO publish Object Array
+    //Clustering the detected pixels
+    std::vector<ObjectPositionExtractorNode::ObjectCandidate> candidates;
+    for (auto it = positionOut_.begin<cv::Vec4f>(); it != positionOut_.end<cv::Vec4f>(); ++it)
+    {
+        auto x = (*it)[0];
+        auto y = (*it)[1];
+        auto z = (*it)[2];
+        
+        //Not detected at this pixel
+        if (x == 0 && y == 0 && z == 0)
+            continue;
+
+        Eigen::Vector3d point(x, y, z);
+
+        //If this is the first point, just add it to the candidates
+        if (candidates.size() == 0)
+        {
+            candidates.emplace_back();
+            candidates[0].add(point);
+            continue;
+        }
+
+        //Find a candidate nearest from the point
+        int minIndex;
+        double minDistance;
+        std::tie(minIndex, minDistance) = findNearest(candidates, point);
+
+        //If the candidate is distant from the point, create a new candidate
+        if (object_separation_distance_ < minDistance)
+        {
+            candidates.emplace_back();
+            candidates[candidates.size() - 1].add(point);
+            continue;
+        }
+
+        //Add the point to the neareset candidate
+        candidates[minIndex].add(point);
+    }
+
+    //Publish Object Array
+    cgs_nav_msgs::ObjectArray objectArray;
+    for (const auto& candidate : candidates)
+    {
+
+        if (candidate.count() < min_pixel_count_for_detection_)
+            continue;
+
+        ROS_INFO_STREAM("detected object (" << candidate.count() << "px)");
+        auto candidate_pose = candidate.mean();
+        auto candidate_size = candidate.size();
+
+        geometry_msgs::Pose pose;
+        {
+            pose.position.x = candidate_pose.x();
+            pose.position.y = candidate_pose.y();
+            pose.position.z = candidate_pose.z();
+            pose.orientation.x = 0;
+            pose.orientation.y = 0;
+            pose.orientation.z = 0;
+            pose.orientation.w = 1;
+        }
+        geometry_msgs::Twist zero_twist;
+        geometry_msgs::Vector3 size;
+        {
+            size.x = candidate_size.x();
+            size.y = candidate_size.y();
+            size.z = candidate_size.z();
+        }
+
+        cgs_nav_msgs::Object o;
+        o.header.frame_id = depth_frame_id_;
+        o.header.stamp = cv_ptr->header.stamp;
+        o.child_frame_id = "object"; //TODO
+        o.id = 0; //TODO
+        o.pose = pose;
+        o.twist = zero_twist;
+        o.size = size;
+        o.confidence = 1.0; //TODO ちゃんとconfidenceを設定する
+
+        objectArray.objects.push_back(o);
+    }
+    objectArray.header.frame_id = depth_frame_id_;
+    objectArray.header.stamp = cv_ptr->header.stamp;
+    objectArrayPublisher_.publish(objectArray);
 }
 
 void ObjectPositionExtractorNode::getTransformMatrixArray(const tf::Transform& transform, std::array<float, 16>& matrix)

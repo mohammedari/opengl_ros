@@ -12,6 +12,7 @@
   <arg name="frame_rate"                   default="30"/>
 
   <arg name="d435"                         default="false"/>
+  <arg name="viewer"                       default="false"/>
   <arg name="record"                       default="false"/>
 
   <group ns="d435" if="$(arg d435)">
@@ -61,27 +62,33 @@
     <param name="svm_coef_b"                value="0.0444656815907"/>
     <param name="svm_intercept"             value="-44.3271851592"/>
 
+    <param name="object_separation_distance"    value="1"/>
+    <param name="min_pixel_count_for_detection" value="15"/>
+
     <param name="vertex_shader"             value="$(find opengl_ros_lib)/shader/vs_object_position_extraction.glsl"/>
     <param name="fragment_shader"           value="$(find opengl_ros_lib)/shader/fs_object_position_extraction.glsl"/>
 
     <remap from="color_in"        to="/d435/color/image_raw"/>
     <remap from="depth_in"        to="/d435/depth/image_rect_raw"/>
     <remap from="image_out"       to="/object_extraction"/>
+    <remap from="~objects"        to="/objects"/>
   </node>
 
-  <node pkg="image_view" type="image_view" name="viewer_depth">
-    <remap from="image" to="/d435/depth/image_rect_raw"/>
-  </node>
+  <group ns="viewer" if="$(arg viewer)">
+    <node pkg="image_view" type="image_view" name="viewer_depth">
+      <remap from="image" to="/d435/depth/image_rect_raw"/>
+    </node>
 
-  <node pkg="image_view" type="image_view" name="viewer_color">
-    <remap from="image" to="/d435/color/image_raw"/>
-  </node>
+    <node pkg="image_view" type="image_view" name="viewer_color">
+      <remap from="image" to="/d435/color/image_raw"/>
+    </node>
 
-  <node pkg="image_view" type="image_view" name="viewer_out">
-    <remap from="image" to="/object_extraction"/>
-  </node>
+    <node pkg="image_view" type="image_view" name="viewer_out">
+      <remap from="image" to="/object_extraction"/>
+    </node>
+  </group>
 
-  <node pkg="rosbag" type="record" name="logger" if="$(arg d435)"
+  <node pkg="rosbag" type="record" name="logger" if="$(arg record)"
     args="-o $(arg bag_prefix) 
           --lz4
           -a

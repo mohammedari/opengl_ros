@@ -15,11 +15,13 @@ find_package(catkin REQUIRED COMPONENTS
   cv_bridge
   opengl_ros_lib
   tf
+  cgs_nav_msgs
 )
 
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
 find_package(OpenCV REQUIRED)
+find_package(Eigen3 REQUIRED)
 
 ## Uncomment this if the package has a setup.py. This macro ensures
 ## modules and global scripts declared therein get installed
@@ -109,7 +111,7 @@ find_package(OpenCV REQUIRED)
 catkin_package(
 #  INCLUDE_DIRS include
 #  LIBRARIES opengl_ros
-  CATKIN_DEPENDS opengl_ros_lib
+  CATKIN_DEPENDS opengl_ros_lib cgs_nav_msgs
 #  DEPENDS system_lib
 )
 
@@ -122,6 +124,7 @@ catkin_package(
 include_directories(
   ${catkin_INCLUDE_DIRS}
   ${opengl_ros_lib_INCLUDE_DIRS}
+  ${EIGEN3_INCLUDE_DIRS}
 )
 
 ## Declare a C++ library
