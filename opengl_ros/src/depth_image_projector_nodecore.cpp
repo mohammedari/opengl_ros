@@ -101,12 +101,11 @@ void DepthImageProjectorNode::depthCallback(const sensor_msgs::Image::ConstPtr& 
         return;
     }
 
-    //TODO Remove entire color image process as color image is not used anymore
-    //if (!latestColorImagePtr)
-    //{
-    //    ROS_WARN_STREAM("color stream not ready");
-    //    return;
-    //}
+    if (!latestColorImagePtr)
+    {
+        ROS_WARN_STREAM("color stream not ready");
+        return;
+    }
 
     //TODO Remove entire color image process as color image is not used anymore
     //// Update & check whether depthToColor is valid.
@@ -116,7 +115,7 @@ void DepthImageProjectorNode::depthCallback(const sensor_msgs::Image::ConstPtr& 
     //    ROS_WARN_STREAM("extrinsics parameter not arrivied yet");
     //    return;
     //}
-    //
+    
     std::array<float, 16> depthToMap;
     try
     {
