@@ -3,9 +3,11 @@
   <arg name="bag_prefix"                    default="/mnt/log/d435"/>
   <arg name="depth_width"                   default="640"/>
   <arg name="depth_height"                  default="360"/>
-  <arg name="output_width"                  default="320"/>
-  <arg name="output_height"                 default="180"/>
   <arg name="frame_rate"                    default="30"/>
+
+  <!-- use small size image to accumulate in CPU -->
+  <arg name="output_width"                  default="160"/>
+  <arg name="output_height"                 default="90"/>
 
   <!-- valid depth range of D435 -->
   <arg name="depth_min"                     default="0.105"/>
@@ -13,14 +15,18 @@
 
   <!-- color extraction parameter -->
   <arg name="threshold_l"                   default="50"/>
-  <arg name="svm_coef_a"                    default="0.266602955271"/>
-  <arg name="svm_coef_b"                    default="0.0444656815907"/>
-  <arg name="svm_intercept"                 default="-44.3271851592"/>
+  <arg name="svm_coef_a"                    default="0.181817179054"/>
+  <arg name="svm_coef_b"                    default="-0.0205828687538"/>
+  <arg name="svm_intercept"                 default="-27.8266303282"/>
 
   <!-- object position extraction parameter -->
-  <arg name="object_separation_distance"    default="1"/>
-  <arg name="min_pixel_count_for_detection" default="15"/>
-  <arg name="sigma_coefficient"             default="2"/>
+  <arg name="object_separation_distance"    default="2"/>
+  <arg name="min_pixel_count_for_detection" default="30"/> <!-- specify in input resolution -->
+  <arg name="sigma_coefficient"             default="0.25"/>
+  <arg name="object_size_min_x"             default="0.175"/>
+  <arg name="object_size_max_x"             default="0.5"/>
+  <arg name="object_size_min_y"             default="0.175"/>
+  <arg name="object_size_max_y"             default="0.5"/>
 
   <arg name="d435"                          default="false"/>
   <arg name="viewer"                        default="false"/>
@@ -76,6 +82,11 @@
     <param name="object_separation_distance"    value="$(arg object_separation_distance)"/>
     <param name="min_pixel_count_for_detection" value="$(arg min_pixel_count_for_detection)"/>
     <param name="sigma_coefficient"             value="$(arg sigma_coefficient)"/>
+
+    <param name="object_size_min_x"         value="$(arg object_size_min_x)"/>
+    <param name="object_size_max_x"         value="$(arg object_size_max_x)"/>
+    <param name="object_size_min_y"         value="$(arg object_size_min_y)"/>
+    <param name="object_size_max_y"         value="$(arg object_size_max_y)"/>
 
     <param name="vertex_shader"             value="$(find opengl_ros_lib)/shader/vs_object_position_extraction.glsl"/>
     <param name="fragment_shader"           value="$(find opengl_ros_lib)/shader/fs_object_position_extraction.glsl"/>

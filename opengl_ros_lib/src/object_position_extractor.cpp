@@ -97,6 +97,12 @@ ObjectPositionExtractor::Impl::Impl(
 
     //Verticies setup
     vao_.mapVariable(vbo_, glGetAttribLocation(program_.get(), "inputPixel"), 3, GL_FLOAT, 0);
+
+    //Enable blending
+    glEnable(GL_BLEND);
+    glBlendEquation(GL_FUNC_ADD);
+    glBlendFuncSeparatei(0, GL_ONE, GL_ONE , GL_ONE, GL_ONE);  //accumulate position
+    glBlendFuncSeparatei(1, GL_ONE, GL_ZERO, GL_ONE, GL_ZERO); //always overwrite color
 }
 
 void ObjectPositionExtractor::Impl::updateProjectionMatrix(

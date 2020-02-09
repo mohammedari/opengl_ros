@@ -28,6 +28,10 @@ ObjectPositionExtractorNode::ObjectPositionExtractorNode(const ros::NodeHandle& 
     nh_.param<double>("object_separation_distance", object_separation_distance_, 2);
     nh_.param<int>("min_pixel_count_for_detection", min_pixel_count_for_detection_, 10);
     nh_.param<double>("sigma_coefficient_", sigma_coefficient_, 2);
+    nh_.param<double>("object_size_min_x", object_size_min_x_, 0.1);
+    nh_.param<double>("object_size_max_x", object_size_max_x_, 0.5);
+    nh_.param<double>("object_size_min_y", object_size_min_y_, 0.1);
+    nh_.param<double>("object_size_max_y", object_size_max_y_, 0.5);
 
     //OpenGL parameters
     int color_width, color_height;
@@ -133,8 +137,8 @@ void ObjectPositionExtractorNode::depthCallback(const sensor_msgs::Image::ConstP
     extractor_->updateProjectionMatrix(
         {static_cast<float>(latestColorCameraInfo.K[0]), static_cast<float>(latestColorCameraInfo.K[4])}, 
         {static_cast<float>(latestColorCameraInfo.K[2]), static_cast<float>(latestColorCameraInfo.K[5])}, 
-        {static_cast<float>(cameraInfoMsg->K[0])           , static_cast<float>(cameraInfoMsg->K[4])}, 
-        {static_cast<float>(cameraInfoMsg->K[2])           , static_cast<float>(cameraInfoMsg->K[5])}, 
+        {static_cast<float>(cameraInfoMsg->K[0])       , static_cast<float>(cameraInfoMsg->K[4])}, 
+        {static_cast<float>(cameraInfoMsg->K[2])       , static_cast<float>(cameraInfoMsg->K[5])}, 
         latestDepthToColor_
     );
 
@@ -154,21 +158,23 @@ void ObjectPositionExtractorNode::depthCallback(const sensor_msgs::Image::ConstP
     std::vector<ObjectPositionExtractorNode::ObjectCandidate> candidates;
     for (auto it = positionOut_.begin<cv::Vec4f>(); it != positionOut_.end<cv::Vec4f>(); ++it)
     {
-        auto x = (*it)[0];
-        auto y = (*it)[1];
-        auto z = (*it)[2];
+        auto x = (*it)[0]; //
+        auto y = (*it)[1]; //
+        auto z = (*it)[2]; //accumulated coordinate value
+        auto w = (*it)[3]; //number of accumulated point 
         
         //Not detected at this pixel
-        if (x == 0 && y == 0 && z == 0)
+        if (w == 0)
             continue;
 
-        Eigen::Vector3d point(x, y, z);
+        Eigen::Vector3d point(x / w, y / w, z / w); 
+        int accumulated_pixel_count = static_cast<int>(std::round(w));
 
         //If this is the first point, just add it to the candidates
         if (candidates.size() == 0)
         {
             candidates.emplace_back();
-            candidates[0].add(point);
+            candidates[0].add(point, accumulated_pixel_count);
             continue;
         }
 
@@ -181,12 +187,12 @@ void ObjectPositionExtractorNode::depthCallback(const sensor_msgs::Image::ConstP
         if (object_separation_distance_ < minDistance)
         {
             candidates.emplace_back();
-            candidates[candidates.size() - 1].add(point);
+            candidates[candidates.size() - 1].add(point, accumulated_pixel_count);
             continue;
         }
 
         //Add the point to the neareset candidate
-        candidates[minIndex].add(point);
+        candidates[minIndex].add(point, accumulated_pixel_count);
     }
 
     //Publish Object Array
@@ -195,14 +201,19 @@ void ObjectPositionExtractorNode::depthCallback(const sensor_msgs::Image::ConstP
     {
         auto sigma = candidate.variance();
 
-        auto count = candidate.count(sigma_coefficient_ * sigma);
-        if (count < min_pixel_count_for_detection_)
+        //If number of pixel is lower than threshold, skip it
+        if (candidate.number_of_detected_pixels < min_pixel_count_for_detection_)
             continue;
 
-        ROS_INFO_STREAM("detected object (" << count << "/" << candidate.count() << "px)");
+        //If the size of the object along the camera direction is too small or too large, skip it
+        auto candidate_size = candidate.size(sigma_coefficient_ * sigma);
+        if (candidate_size.x() < object_size_min_x_ || object_size_max_x_ < candidate_size.x() || 
+            candidate_size.y() < object_size_min_y_ || object_size_max_y_ < candidate_size.y())
+            continue;
+
+        ROS_INFO_STREAM("detected object (" << candidate.number_of_detected_pixels << "px)");
 
         auto candidate_pose = candidate.mean(sigma_coefficient_ * sigma);
-        auto candidate_size = candidate.size(sigma_coefficient_ * sigma);
         geometry_msgs::Pose pose;
         {
             pose.position.x = candidate_pose.x();
@@ -229,7 +240,7 @@ void ObjectPositionExtractorNode::depthCallback(const sensor_msgs::Image::ConstP
         o.pose = pose;
         o.twist = zero_twist;
         o.size = size;
-        o.confidence = static_cast<double>(count) / candidate.count(); //set number of pixels in threshold as confidence
+        o.confidence = 1.0; //TODO
 
         objectArray.objects.push_back(o);
     }

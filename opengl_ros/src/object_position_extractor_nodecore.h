@@ -45,6 +45,8 @@ class ObjectPositionExtractorNode
     double object_separation_distance_;
     int min_pixel_count_for_detection_;
     double sigma_coefficient_;
+    double object_size_min_x_, object_size_max_x_;
+    double object_size_min_y_, object_size_max_y_;
 
     void colorCallback(const sensor_msgs::Image::ConstPtr& imageMsg, const sensor_msgs::CameraInfoConstPtr & cameraInfoMsg);
     void depthCallback(const sensor_msgs::Image::ConstPtr& imageMsg, const sensor_msgs::CameraInfoConstPtr & cameraInfoMsg);
@@ -56,11 +58,13 @@ public:
     {
         std::vector<Eigen::Vector3d> points;
         Eigen::Vector3d sum = {};
+        int number_of_detected_pixels = 0;
 
-        void add(const Eigen::Vector3d& point)
+        void add(const Eigen::Vector3d& point, int accumulated_pixel_count)
         {
             points.push_back(point);
             sum += point;
+            number_of_detected_pixels += accumulated_pixel_count;
         }
 
         Eigen::Vector3d mean() const
@@ -94,23 +98,6 @@ public:
             }
 
             return sqrt(squared_diff_sum / points.size());
-        }
-
-        int count() const
-        {
-            return points.size();
-        }
-
-        int count(double threshold) const
-        {
-            auto m = mean();
-
-            int count = 0;
-            for (const auto p : points)
-                if ((p - m).norm() < threshold)
-                    ++count;
-
-            return count;
         }
 
         Eigen::Vector3d size(double threshold = std::numeric_limits<double>::infinity()) const 
