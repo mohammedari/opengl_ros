@@ -20,13 +20,15 @@
   <arg name="svm_intercept"                 default="-27.8266303282"/>
 
   <!-- object position extraction parameter -->
-  <arg name="object_separation_distance"    default="2"/>
-  <arg name="min_pixel_count_for_detection" default="30"/> <!-- specify in input resolution -->
-  <arg name="sigma_coefficient"             default="0.25"/>
-  <arg name="object_size_min_x"             default="0.175"/>
-  <arg name="object_size_max_x"             default="0.5"/>
-  <arg name="object_size_min_y"             default="0.175"/>
-  <arg name="object_size_max_y"             default="0.5"/>
+  <arg name="object_separation_distance"          default="2"/>
+  <arg name="target_pixel_count_threshold"        default="50"/> <!-- specify accumulated count in input resolution -->
+  <arg name="sigma_coefficient"                   default="1.0"/>
+  <arg name="object_size_min_x"                   default="0.175"/>
+  <arg name="object_size_max_x"                   default="0.5"/>
+  <arg name="object_size_min_y"                   default="0.175"/>
+  <arg name="object_size_max_y"                   default="0.5"/>
+  <arg name="object_candidate_lifetime"           default="0.5"/>
+  <arg name="object_candidate_max_storing_points" default="5000"/>
 
   <arg name="d435"                          default="false"/>
   <arg name="viewer"                        default="false"/>
@@ -62,6 +64,7 @@
     name="object_position_extractor" output="screen">
     <param name="color_frame_id"            value="d435_color_optical"/>
     <param name="depth_frame_id"            value="d435_depth_optical"/>
+    <param name="fixed_frame_id"            value="map"/>
     <param name="tf_wait_duration"          value="0.1"/>
 
     <param name="color_width"               value="$(arg depth_width)"/>
@@ -79,14 +82,15 @@
     <param name="svm_coef_b"                value="$(arg svm_coef_b)"/>
     <param name="svm_intercept"             value="$(arg svm_intercept)"/>
 
-    <param name="object_separation_distance"    value="$(arg object_separation_distance)"/>
-    <param name="min_pixel_count_for_detection" value="$(arg min_pixel_count_for_detection)"/>
-    <param name="sigma_coefficient"             value="$(arg sigma_coefficient)"/>
-
-    <param name="object_size_min_x"         value="$(arg object_size_min_x)"/>
-    <param name="object_size_max_x"         value="$(arg object_size_max_x)"/>
-    <param name="object_size_min_y"         value="$(arg object_size_min_y)"/>
-    <param name="object_size_max_y"         value="$(arg object_size_max_y)"/>
+    <param name="object_separation_distance"          value="$(arg object_separation_distance)"/>
+    <param name="target_pixel_count_threshold"        value="$(arg target_pixel_count_threshold)"/>
+    <param name="sigma_coefficient"                   value="$(arg sigma_coefficient)"/>
+    <param name="object_size_min_x"                   value="$(arg object_size_min_x)"/>
+    <param name="object_size_max_x"                   value="$(arg object_size_max_x)"/>
+    <param name="object_size_min_y"                   value="$(arg object_size_min_y)"/>
+    <param name="object_size_max_y"                   value="$(arg object_size_max_y)"/>
+    <param name="object_candidate_lifetime"           value="$(arg object_candidate_lifetime)"/>
+    <param name="object_candidate_max_storing_points" value="$(arg object_candidate_max_storing_points)"/>
 
     <param name="vertex_shader"             value="$(find opengl_ros_lib)/shader/vs_object_position_extraction.glsl"/>
     <param name="fragment_shader"           value="$(find opengl_ros_lib)/shader/fs_object_position_extraction.glsl"/>

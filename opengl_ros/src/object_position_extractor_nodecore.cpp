@@ -22,16 +22,19 @@ ObjectPositionExtractorNode::ObjectPositionExtractorNode(const ros::NodeHandle& 
     //Frame ids for tf which associates color frame with depth frame
     nh_.param<std::string>("color_frame_id", color_frame_id_, "d435_color_optical");
     nh_.param<std::string>("depth_frame_id", depth_frame_id_, "d435_depth_optical");
+    nh_.param<std::string>("fixed_frame_id", fixed_frame_id_, "map");
     nh_.param<double>("tf_wait_duration", tf_wait_duration_, 0.1);
 
     //Other parameters
     nh_.param<double>("object_separation_distance", object_separation_distance_, 2);
-    nh_.param<int>("min_pixel_count_for_detection", min_pixel_count_for_detection_, 10);
+    nh_.param<int>("target_pixel_count_threshold", target_pixel_count_threshold_, 10);
     nh_.param<double>("sigma_coefficient_", sigma_coefficient_, 2);
     nh_.param<double>("object_size_min_x", object_size_min_x_, 0.1);
     nh_.param<double>("object_size_max_x", object_size_max_x_, 0.5);
     nh_.param<double>("object_size_min_y", object_size_min_y_, 0.1);
     nh_.param<double>("object_size_max_y", object_size_max_y_, 0.5);
+    nh_.param<double>("object_candidate_lifetime", object_candidate_lifetime_, 0.5);
+    nh_.param<int>("object_candidate_max_storing_points", object_candidate_max_storing_points_, 5000);
 
     //OpenGL parameters
     int color_width, color_height;
@@ -87,23 +90,39 @@ void ObjectPositionExtractorNode::colorCallback(const sensor_msgs::Image::ConstP
     latestColorCameraInfo = *(cameraInfoMsg.get());
 }
 
-static std::tuple<int, double> findNearest(const std::vector<ObjectPositionExtractorNode::ObjectCandidate>& candidates, const Eigen::Vector3d point)
+template<class CANDIDATE_LIST>
+static std::tuple<ObjectPositionExtractorNode::ObjectCandidate*, double> findNearest(
+    CANDIDATE_LIST& candidates, const tf::Vector3& point)
 {
     ROS_ASSERT(candidates.size() > 0);
 
-    int minIndex = 0;
+    ObjectPositionExtractorNode::ObjectCandidate* minElement;
     double minDistance = std::numeric_limits<double>::infinity();
-    for (int i = 1; i < candidates.size(); ++i)
+    for (auto& candidate : candidates)
     {
-        auto distance = (candidates[i].mean() - point).norm();
+        auto distance = (candidate.mean() - point).length();
         if (distance < minDistance)
         {
-            minIndex = i;
+            minElement = &candidate;
             minDistance = distance;
         }
     }
 
-    return std::tie(minIndex, minDistance);
+    return std::tie(minElement, minDistance);
+}
+
+static void mergeCandidates(
+    ObjectPositionExtractorNode::ObjectCandidate& candidate_world, 
+    const ObjectPositionExtractorNode::ObjectCandidate& candidate_local, 
+    int object_candidate_max_storing_points,
+    const tf::Transform& transform)
+{
+        //Convert the point to fixed_frame and add the points
+        for (const auto& point : candidate_local.points)
+            candidate_world.add(transform * point, 0, object_candidate_max_storing_points, ros::Time());
+
+        candidate_world.total_number_of_detected_pixels += candidate_local.total_number_of_detected_pixels;
+        candidate_world.last_detected_time = candidate_local.last_detected_time;
 }
 
 void ObjectPositionExtractorNode::depthCallback(const sensor_msgs::Image::ConstPtr& imageMsg, const sensor_msgs::CameraInfoConstPtr & cameraInfoMsg)
@@ -155,7 +174,7 @@ void ObjectPositionExtractorNode::depthCallback(const sensor_msgs::Image::ConstP
     imagePublisher_.publish(outImage.toImageMsg());
 
     //Clustering the detected pixels
-    std::vector<ObjectPositionExtractorNode::ObjectCandidate> candidates;
+    std::vector<ObjectPositionExtractorNode::ObjectCandidate> candidates_in_local_space;
     for (auto it = positionOut_.begin<cv::Vec4f>(); it != positionOut_.end<cv::Vec4f>(); ++it)
     {
         auto x = (*it)[0]; //
@@ -167,58 +186,125 @@ void ObjectPositionExtractorNode::depthCallback(const sensor_msgs::Image::ConstP
         if (w == 0)
             continue;
 
-        Eigen::Vector3d point(x / w, y / w, z / w); 
+        tf::Vector3 point(x / w, y / w, z / w); 
         int accumulated_pixel_count = static_cast<int>(std::round(w));
 
         //If this is the first point, just add it to the candidates
-        if (candidates.size() == 0)
+        if (candidates_in_local_space.size() == 0)
         {
-            candidates.emplace_back();
-            candidates[0].add(point, accumulated_pixel_count);
+            candidates_in_local_space.emplace_back(0); //ignore id
+            candidates_in_local_space[0].add(point, accumulated_pixel_count, object_candidate_max_storing_points_, cv_ptr->header.stamp);
             continue;
         }
 
         //Find a candidate nearest from the point
-        int minIndex;
+        ObjectPositionExtractorNode::ObjectCandidate* minElement;
         double minDistance;
-        std::tie(minIndex, minDistance) = findNearest(candidates, point);
+        std::tie(minElement, minDistance) = findNearest(candidates_in_local_space, point);
 
         //If the candidate is distant from the point, create a new candidate
         if (object_separation_distance_ < minDistance)
         {
-            candidates.emplace_back();
-            candidates[candidates.size() - 1].add(point, accumulated_pixel_count);
+            candidates_in_local_space.emplace_back(0); //ignore id
+            candidates_in_local_space[candidates_in_local_space.size() - 1].add(point, accumulated_pixel_count, object_candidate_max_storing_points_, cv_ptr->header.stamp);
             continue;
         }
 
         //Add the point to the neareset candidate
-        candidates[minIndex].add(point, accumulated_pixel_count);
+        minElement->add(point, accumulated_pixel_count, object_candidate_max_storing_points_, cv_ptr->header.stamp);
     }
 
-    //Publish Object Array
-    cgs_nav_msgs::ObjectArray objectArray;
-    for (const auto& candidate : candidates)
+    //Retrieve tf for fixed_frame;
+    tf::StampedTransform transform_to_fixed_frame;
+    try
+    {
+        if (tfListener_.waitForTransform(fixed_frame_id_, depth_frame_id_,
+              cv_ptr->header.stamp, ros::Duration(tf_wait_duration_)))
+        {
+            tfListener_.lookupTransform(fixed_frame_id_, depth_frame_id_,
+                cv_ptr->header.stamp, transform_to_fixed_frame);
+        }
+    }
+    catch (tf::TransformException& ex)
+    {
+        ROS_WARN_STREAM("Transform Exception occured in depthCallback(). " << ex.what());
+        return;
+    }
+
+    //Merge candidates into world space candidates
+    for (const auto& candidate : candidates_in_local_space)
     {
         auto sigma = candidate.variance();
-
-        //If number of pixel is lower than threshold, skip it
-        if (candidate.number_of_detected_pixels < min_pixel_count_for_detection_)
+        tf::Vector3 candidate_mean, candidate_size; 
+        if (!candidate.mean(sigma_coefficient_ * sigma, candidate_mean) || !candidate.size(sigma_coefficient_ * sigma, candidate_size))
+        {
+            ROS_DEBUG_STREAM("Too small sigma coefficient in calculating mean/size of local object candidate.");
             continue;
+        }
 
         //If the size of the object along the camera direction is too small or too large, skip it
-        auto candidate_size = candidate.size(sigma_coefficient_ * sigma);
         if (candidate_size.x() < object_size_min_x_ || object_size_max_x_ < candidate_size.x() || 
             candidate_size.y() < object_size_min_y_ || object_size_max_y_ < candidate_size.y())
             continue;
 
-        ROS_INFO_STREAM("detected object (" << candidate.number_of_detected_pixels << "px)");
+        //If this is the first candidate, just add it to the candidates
+        if (object_candidates_.size() == 0)
+        {
+            object_candidates_.emplace_back(next_id_++);
+            mergeCandidates(object_candidates_.back(), candidate, object_candidate_max_storing_points_, transform_to_fixed_frame);
+            continue;
+        }
 
-        auto candidate_pose = candidate.mean(sigma_coefficient_ * sigma);
+        ROS_INFO_STREAM("detected object candidate (" << candidate.total_number_of_detected_pixels << "px)");
+
+        //Calculate mean of the candidate in world space
+        candidate_mean = transform_to_fixed_frame * candidate_mean;
+
+        //Find a candidate nearest from the mean of the local candidate
+        ObjectPositionExtractorNode::ObjectCandidate* minElement;
+        double minDistance;
+        std::tie(minElement, minDistance) = findNearest(object_candidates_, candidate_mean);
+
+        //If the candidate is distant from the point, create a new candidate
+        if (object_separation_distance_ < minDistance)
+        {
+            object_candidates_.emplace_back(next_id_++);
+            mergeCandidates(object_candidates_.back(), candidate, object_candidate_max_storing_points_, transform_to_fixed_frame);
+            continue;
+        }
+
+        //Merge the candidate to the neareset candidate
+        mergeCandidates(*minElement, candidate, object_candidate_max_storing_points_, transform_to_fixed_frame);
+    }
+
+    //Remove out-dated candidates
+    auto lifetime = object_candidate_lifetime_;
+    auto stamp = cv_ptr->header.stamp;
+    object_candidates_.remove_if([lifetime, stamp](const auto& candidate) {
+        return ros::Duration(lifetime) < stamp - candidate.last_detected_time;
+    });
+
+    //Publish Object Array
+    cgs_nav_msgs::ObjectArray objectArray;
+    for (const auto& candidate : object_candidates_)
+    {
+        //If number of pixel is lower than threshold, skip it
+        if (candidate.total_number_of_detected_pixels < target_pixel_count_threshold_)
+            continue;
+
+        auto sigma = candidate.variance();
+        tf::Vector3 candidate_mean, candidate_size;
+        if (!candidate.mean(sigma_coefficient_ * sigma, candidate_mean) || !candidate.size(sigma_coefficient_ * sigma, candidate_size))
+        {
+            ROS_DEBUG_STREAM("Too small sigma coefficient in calculating mean/size of world object candidate.");
+            continue;
+        }
+
         geometry_msgs::Pose pose;
         {
-            pose.position.x = candidate_pose.x();
-            pose.position.y = candidate_pose.y();
-            pose.position.z = candidate_pose.z();
+            pose.position.x = candidate_mean.x();
+            pose.position.y = candidate_mean.y();
+            pose.position.z = candidate_mean.z();
             pose.orientation.x = 0;
             pose.orientation.y = 0;
             pose.orientation.z = 0;
@@ -233,10 +319,10 @@ void ObjectPositionExtractorNode::depthCallback(const sensor_msgs::Image::ConstP
         }
 
         cgs_nav_msgs::Object o;
-        o.header.frame_id = depth_frame_id_;
+        o.header.frame_id = fixed_frame_id_;
         o.header.stamp = cv_ptr->header.stamp;
         o.child_frame_id = "object"; //TODO
-        o.id = 0; //TODO
+        o.id = candidate.id; 
         o.pose = pose;
         o.twist = zero_twist;
         o.size = size;
@@ -244,7 +330,7 @@ void ObjectPositionExtractorNode::depthCallback(const sensor_msgs::Image::ConstP
 
         objectArray.objects.push_back(o);
     }
-    objectArray.header.frame_id = depth_frame_id_;
+    objectArray.header.frame_id = fixed_frame_id_;
     objectArray.header.stamp = cv_ptr->header.stamp;
     objectArrayPublisher_.publish(objectArray);
 }
@@ -284,7 +370,7 @@ bool ObjectPositionExtractorNode::updateDepthToColor()
     }
     catch (tf::TransformException& ex)
     {
-        ROS_WARN("Transform Exception in updateDepthToColor(). %s", ex.what());
+        ROS_WARN_STREAM("Transform Exception in updateDepthToColor(). " << ex.what());
     }
 
     return depthToColorArrived_;
