@@ -36,6 +36,9 @@ ObjectPositionExtractorNode::ObjectPositionExtractorNode(const ros::NodeHandle& 
     nh_.param<double>("object_candidate_lifetime", object_candidate_lifetime_, 0.5);
     nh_.param<int>("object_candidate_max_storing_points", object_candidate_max_storing_points_, 5000);
 
+    nh_.param<int>("target_pixel_count_max", target_pixel_count_max_, 1000);
+    distance_matrix_ = std::make_unique<DistanceMatrix<float>>(target_pixel_count_max_);
+
     //OpenGL parameters
     int color_width, color_height;
     nh_.param<int>("color_width" , color_width , 640);
@@ -172,6 +175,38 @@ void ObjectPositionExtractorNode::depthCallback(const sensor_msgs::Image::ConstP
     outImage.encoding = "rgb8";
     outImage.image = colorOut_;
     imagePublisher_.publish(outImage.toImageMsg());
+
+    //Convert accumulated coordinates in an image to 3D points
+    std::vector<tf::Vector3> points;
+    std::vector<int> accumulated_pixel_counts;
+    for (auto it = positionOut_.begin<cv::Vec4f>(); it != positionOut_.end<cv::Vec4f>(); ++it)
+    {
+        //Use only first points less than maximum capacity
+        //to ensure finishing the process in an acceptable time
+        if (target_pixel_count_max_ <= points.size())
+            break;
+
+        auto x = (*it)[0]; //
+        auto y = (*it)[1]; //
+        auto z = (*it)[2]; //accumulated coordinate value
+        auto w = (*it)[3]; //number of accumulated point 
+        
+        //Not detected at this pixel
+        if (w == 0)
+            continue;
+
+        points.emplace_back(x / w, y / w, z / w);
+        accumulated_pixel_counts.push_back(static_cast<int>(std::round(w)));
+    }
+
+    //Clustering the detected 3D points with DBSCAN
+    {
+        const auto distance_calculator = [](const tf::Vector3& x, const tf::Vector3& y){ return (x - y).length(); };
+        distance_matrix_->update<std::vector<tf::Vector3>, tf::Vector3>(points, distance_calculator);
+    }
+
+
+    /////
 
     //Clustering the detected pixels
     std::vector<ObjectPositionExtractorNode::ObjectCandidate> candidates_in_local_space;

@@ -14,6 +14,8 @@
 
 #include "object_position_extractor.h"
 
+#include "distance_matrix.h"
+
 namespace opengl_ros {
 
 class ObjectPositionExtractorNode
@@ -149,6 +151,9 @@ private:
     int object_candidate_max_storing_points_;
     std::list<ObjectCandidate> object_candidates_;
     uint64_t next_id_ = 0;
+
+    int target_pixel_count_max_;
+    std::unique_ptr<DistanceMatrix<float>> distance_matrix_;
 
     void colorCallback(const sensor_msgs::Image::ConstPtr& imageMsg, const sensor_msgs::CameraInfoConstPtr & cameraInfoMsg);
     void depthCallback(const sensor_msgs::Image::ConstPtr& imageMsg, const sensor_msgs::CameraInfoConstPtr & cameraInfoMsg);
