@@ -119,12 +119,12 @@
     args="-o $(arg bag_prefix) 
           --lz4
           -a
-          -x /(d435|occupancy_grid_image|viewer_depth|viewer_color|viewer_out)/(.*)
+          -x /(d435|object_extraction|viewer_depth|viewer_color|viewer_out)/(.*)
           /d435/color/camera_info
           /d435/color/image_raw
           /d435/depth/camera_info
           /d435/depth/image_rect_raw
           /d435/extrinsics/depth_to_color
-          /occupancy_grid_image
+          /object_extraction
     "/>
 </launch>
