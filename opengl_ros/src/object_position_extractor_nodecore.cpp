@@ -28,15 +28,20 @@ ObjectPositionExtractorNode::ObjectPositionExtractorNode(const ros::NodeHandle& 
     //Other parameters
     nh_.param<double>("object_separation_distance", object_separation_distance_, 2);
     nh_.param<int>("target_pixel_count_threshold", target_pixel_count_threshold_, 10);
+    nh_.param<int>("target_pixel_count_max", target_pixel_count_max_, 1000);
     nh_.param<double>("sigma_coefficient_", sigma_coefficient_, 2);
     nh_.param<double>("object_size_min_x", object_size_min_x_, 0.1);
     nh_.param<double>("object_size_max_x", object_size_max_x_, 0.5);
     nh_.param<double>("object_size_min_y", object_size_min_y_, 0.1);
     nh_.param<double>("object_size_max_y", object_size_max_y_, 0.5);
     nh_.param<double>("object_candidate_lifetime", object_candidate_lifetime_, 0.5);
-    nh_.param<int>("object_candidate_max_storing_points", object_candidate_max_storing_points_, 5000);
 
-    nh_.param<int>("target_pixel_count_max", target_pixel_count_max_, 1000);
+    //Preparation for DBSCAN
+    double dbscan_epsilon;
+    int dbscan_min_points;
+    nh_.param<double>("dbscan_epsilon", dbscan_epsilon, 1.0);
+    nh_.param<int>("dbscan_min_points", dbscan_min_points, 5);
+    dbscan_ = std::make_unique<DBSCAN>(dbscan_epsilon, dbscan_min_points);
     distance_matrix_ = std::make_unique<DistanceMatrix<float>>(target_pixel_count_max_);
 
     //OpenGL parameters
@@ -117,12 +122,12 @@ static std::tuple<ObjectPositionExtractorNode::ObjectCandidate*, double> findNea
 static void mergeCandidates(
     ObjectPositionExtractorNode::ObjectCandidate& candidate_world, 
     const ObjectPositionExtractorNode::ObjectCandidate& candidate_local, 
-    int object_candidate_max_storing_points,
+    int target_pixel_count_max,
     const tf::Transform& transform)
 {
         //Convert the point to fixed_frame and add the points
         for (const auto& point : candidate_local.points)
-            candidate_world.add(transform * point, 0, object_candidate_max_storing_points, ros::Time());
+            candidate_world.add(transform * point, 0, target_pixel_count_max, ros::Time());
 
         candidate_world.total_number_of_detected_pixels += candidate_local.total_number_of_detected_pixels;
         candidate_world.last_detected_time = candidate_local.last_detected_time;
@@ -184,7 +189,10 @@ void ObjectPositionExtractorNode::depthCallback(const sensor_msgs::Image::ConstP
         //Use only first points less than maximum capacity
         //to ensure finishing the process in an acceptable time
         if (target_pixel_count_max_ <= points.size())
+        {
+            ROS_WARN_STREAM("Target pixel count exceeds 'target_pixel_count_max'. First " << target_pixel_count_max_ << " pixels will be used for identify targets.");
             break;
+        }
 
         auto x = (*it)[0]; //
         auto y = (*it)[1]; //
@@ -200,53 +208,16 @@ void ObjectPositionExtractorNode::depthCallback(const sensor_msgs::Image::ConstP
     }
 
     //Clustering the detected 3D points with DBSCAN
+    std::vector<ObjectPositionExtractorNode::ObjectCandidate> candidates_in_local_space;
     {
         const auto distance_calculator = [](const tf::Vector3& x, const tf::Vector3& y){ return (x - y).length(); };
         distance_matrix_->update<std::vector<tf::Vector3>, tf::Vector3>(points, distance_calculator);
-    }
+        auto clusters = dbscan_->cluster(*distance_matrix_.get());
 
-
-    /////
-
-    //Clustering the detected pixels
-    std::vector<ObjectPositionExtractorNode::ObjectCandidate> candidates_in_local_space;
-    for (auto it = positionOut_.begin<cv::Vec4f>(); it != positionOut_.end<cv::Vec4f>(); ++it)
-    {
-        auto x = (*it)[0]; //
-        auto y = (*it)[1]; //
-        auto z = (*it)[2]; //accumulated coordinate value
-        auto w = (*it)[3]; //number of accumulated point 
-        
-        //Not detected at this pixel
-        if (w == 0)
-            continue;
-
-        tf::Vector3 point(x / w, y / w, z / w); 
-        int accumulated_pixel_count = static_cast<int>(std::round(w));
-
-        //If this is the first point, just add it to the candidates
-        if (candidates_in_local_space.size() == 0)
-        {
-            candidates_in_local_space.emplace_back(0); //ignore id
-            candidates_in_local_space[0].add(point, accumulated_pixel_count, object_candidate_max_storing_points_, cv_ptr->header.stamp);
-            continue;
-        }
-
-        //Find a candidate nearest from the point
-        ObjectPositionExtractorNode::ObjectCandidate* minElement;
-        double minDistance;
-        std::tie(minElement, minDistance) = findNearest(candidates_in_local_space, point);
-
-        //If the candidate is distant from the point, create a new candidate
-        if (object_separation_distance_ < minDistance)
-        {
-            candidates_in_local_space.emplace_back(0); //ignore id
-            candidates_in_local_space[candidates_in_local_space.size() - 1].add(point, accumulated_pixel_count, object_candidate_max_storing_points_, cv_ptr->header.stamp);
-            continue;
-        }
-
-        //Add the point to the neareset candidate
-        minElement->add(point, accumulated_pixel_count, object_candidate_max_storing_points_, cv_ptr->header.stamp);
+        candidates_in_local_space.resize(clusters.size());
+        for (int i = 0; i < clusters.size(); ++i)
+            for (auto index : clusters[i])
+                candidates_in_local_space[i].add(points[index], accumulated_pixel_counts[index], target_pixel_count_max_, cv_ptr->header.stamp);
     }
 
     //Retrieve tf for fixed_frame;
@@ -282,15 +253,15 @@ void ObjectPositionExtractorNode::depthCallback(const sensor_msgs::Image::ConstP
             candidate_size.y() < object_size_min_y_ || object_size_max_y_ < candidate_size.y())
             continue;
 
+        ROS_INFO_STREAM("detected object candidate (" << candidate.total_number_of_detected_pixels << "px)");
+
         //If this is the first candidate, just add it to the candidates
         if (object_candidates_.size() == 0)
         {
             object_candidates_.emplace_back(next_id_++);
-            mergeCandidates(object_candidates_.back(), candidate, object_candidate_max_storing_points_, transform_to_fixed_frame);
+            mergeCandidates(object_candidates_.back(), candidate, target_pixel_count_max_, transform_to_fixed_frame);
             continue;
         }
-
-        ROS_INFO_STREAM("detected object candidate (" << candidate.total_number_of_detected_pixels << "px)");
 
         //Calculate mean of the candidate in world space
         candidate_mean = transform_to_fixed_frame * candidate_mean;
@@ -304,12 +275,12 @@ void ObjectPositionExtractorNode::depthCallback(const sensor_msgs::Image::ConstP
         if (object_separation_distance_ < minDistance)
         {
             object_candidates_.emplace_back(next_id_++);
-            mergeCandidates(object_candidates_.back(), candidate, object_candidate_max_storing_points_, transform_to_fixed_frame);
+            mergeCandidates(object_candidates_.back(), candidate, target_pixel_count_max_, transform_to_fixed_frame);
             continue;
         }
 
         //Merge the candidate to the neareset candidate
-        mergeCandidates(*minElement, candidate, object_candidate_max_storing_points_, transform_to_fixed_frame);
+        mergeCandidates(*minElement, candidate, target_pixel_count_max_, transform_to_fixed_frame);
     }
 
     //Remove out-dated candidates
@@ -348,9 +319,10 @@ void ObjectPositionExtractorNode::depthCallback(const sensor_msgs::Image::ConstP
         geometry_msgs::Twist zero_twist;
         geometry_msgs::Vector3 size;
         {
-            size.x = candidate_size.x();
-            size.y = candidate_size.y();
-            size.z = candidate_size.z();
+            //tweek the size to avoid rviz axis aligned box assertion
+            size.x = std::max(0.001, candidate_size.x());
+            size.y = std::max(0.001, candidate_size.y());
+            size.z = std::max(0.001, candidate_size.z());
         }
 
         cgs_nav_msgs::Object o;

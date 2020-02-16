@@ -13,8 +13,8 @@
 #include <tf/transform_listener.h>
 
 #include "object_position_extractor.h"
-
 #include "distance_matrix.h"
+#include "dbscan.h"
 
 namespace opengl_ros {
 
@@ -29,16 +29,17 @@ public:
         int total_number_of_detected_pixels = 0;
         ros::Time last_detected_time = ros::Time{0, 0};
 
+        ObjectCandidate() : id(0) {};
         ObjectCandidate(uint64_t id) : id(id) {};
 
-        void add(const tf::Vector3& point, int accumulated_pixel_count, int object_candidate_max_storing_points, const ros::Time& detected_time)
+        void add(const tf::Vector3& point, int accumulated_pixel_count, int max_pixel_count, const ros::Time& detected_time)
         {
             points.push_back(point);
             sum += point;
             total_number_of_detected_pixels += accumulated_pixel_count;
             last_detected_time = detected_time;
 
-            if(points.size() > object_candidate_max_storing_points)
+            if (points.size() > max_pixel_count)
             {
                 sum -= points.front();
                 points.pop_front();
@@ -64,6 +65,12 @@ public:
                 }
 
             if (count == 0)
+                return false;
+
+            //check validity just in case
+            if (!std::isfinite(sum_in_variance.x()) || 
+                !std::isfinite(sum_in_variance.y()) || 
+                !std::isfinite(sum_in_variance.z()))
                 return false;
 
             result = sum_in_variance / count;
@@ -148,12 +155,12 @@ private:
     double object_size_min_x_, object_size_max_x_;
     double object_size_min_y_, object_size_max_y_;
     double object_candidate_lifetime_;
-    int object_candidate_max_storing_points_;
     std::list<ObjectCandidate> object_candidates_;
     uint64_t next_id_ = 0;
 
     int target_pixel_count_max_;
     std::unique_ptr<DistanceMatrix<float>> distance_matrix_;
+    std::unique_ptr<DBSCAN> dbscan_;
 
     void colorCallback(const sensor_msgs::Image::ConstPtr& imageMsg, const sensor_msgs::CameraInfoConstPtr & cameraInfoMsg);
     void depthCallback(const sensor_msgs::Image::ConstPtr& imageMsg, const sensor_msgs::CameraInfoConstPtr & cameraInfoMsg);

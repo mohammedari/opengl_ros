@@ -10,13 +10,14 @@ class DBSCAN final
     double epsilon_;
     int min_points_;
 
-    std::vector<int> find_points_in_epsilon(const DistanceMatrix& distances, int i) const
+    template<class T>
+    std::vector<int> find_points_in_epsilon(const DistanceMatrix<T>& distances, int i) const
     {
         std::vector<int> points_in_epsilon;
         for (int j = 0; j < distances.length(); ++j)
         {
             if (distances.get(i, j) < epsilon_)
-                points_in_epsilon.push_back(j)
+                points_in_epsilon.push_back(j);
         }
 
         return points_in_epsilon;
@@ -28,12 +29,14 @@ public:
     {
     }
 
-    std::vector<std::vector<int>> cluster(const DistanceMatrix& distances) const
+    template<class T>
+    std::vector<std::vector<int>> cluster(const DistanceMatrix<T>& distances) const
     {
         std::vector<bool> is_clustered(distances.length(), false);
-        std::vector<std::vector<int> clusters;
+        std::vector<std::vector<int>> clusters;
         for (int i = 0; i < distances.length(); ++i)
         {
+            //if the point is already classified in a cluster, skip it
             if (is_clustered[i])
                 continue;
 
@@ -48,6 +51,8 @@ public:
             auto& current_cluster = clusters.back();
 
             //start clustering
+            //perform depth-wise search to find all points in a specified distance
+            //a point which has few neibors less that min_points may be classfied in this group
             std::deque<int> neighboring_points(first_points.cbegin(), first_points.cend());
             while (0 < neighboring_points.size())
             {
