@@ -229,6 +229,9 @@ void ObjectPositionExtractorNode::depthCallback(const sensor_msgs::Image::ConstP
         {
             tfListener_.lookupTransform(fixed_frame_id_, depth_frame_id_,
                 cv_ptr->header.stamp, transform_to_fixed_frame);
+        } else {
+            ROS_WARN_STREAM("TF wait transform timeout in depthCallback().");
+            return;
         }
     }
     catch (tf::TransformException& ex)
@@ -373,6 +376,9 @@ bool ObjectPositionExtractorNode::updateDepthToColor()
             getTransformMatrixArray(transform, latestDepthToColor_);
 
             depthToColorArrived_ = true;
+        } else {
+            ROS_WARN_STREAM("TF wait transform timeout in depthCallback().");
+            return false;
         }
     }
     catch (tf::TransformException& ex)

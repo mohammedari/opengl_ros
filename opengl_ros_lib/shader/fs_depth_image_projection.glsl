@@ -9,23 +9,16 @@ out vec3 fragmentColor;
 //y ... 1.0 if valid depth is measured in any ray
 //z ... 1.0 if any ray achieved at the pixel 
 
-//TODO Remove entire color image process as color image is not used anymore
-uniform sampler2D colorTexture; 
-uniform float threshold_l;
-uniform float svm_coef_a;
-uniform float svm_coef_b;
-uniform float svm_intercept;
-//TODO Remove entire color image process as color image is not used anymore
-
-in float depth;
-in float hitDepth;
+in float depth;    //depth value of the pixel on the line
+in float hitDepth; //depth value of the end of the line
 
 void main(void)
 {
     //TODO multilayer output based on depth which represents height
 
     //If the height is out of the range, discard the fragment.
-    if (gl_FragCoord.z < -gridMapLayerHeight / 2 || gridMapLayerHeight / 2 < gl_FragCoord.z)
+    float height = gl_FragCoord.z / gl_FragCoord.w;
+    if (height < -gridMapLayerHeight / 2 || gridMapLayerHeight / 2 < height)
         discard;
 
     float validDepthMeasured = 1.0;
@@ -33,7 +26,7 @@ void main(void)
         validDepthMeasured = 0.0;
 
     float accumulatedProbability = 0.0;
-    if (0 < validDepthMeasured && hitDepth * depthHitThreshold < depth)
+    if (0 < validDepthMeasured && hitDepth - depthHitThreshold < depth)
         accumulatedProbability = gridMapAccumulationWeight;
 
     //store accumulated value in R channel

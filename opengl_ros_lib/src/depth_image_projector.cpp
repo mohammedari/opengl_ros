@@ -34,12 +34,12 @@ struct DepthImageProjector::Impl
     };
 
     OpenGLContext context_;
-    const int colorWidth_, colorHeight_;
     const int depthWidth_, depthHeight_;
     const int gridMapWidth_, gridMapHeight_;
     const float gridMapResolution_;
     const float gridMapLayerHeight_;
     const float gridMapAccumulationWeight_;
+    const float gridMapDecay_;
     const float minDepth_;
     const float maxDepth_;
     const float depthHitThreshold_;
@@ -51,8 +51,10 @@ struct DepthImageProjector::Impl
     std::vector<Vertex> verticies_;
     cgs::gl::VertexBuffer<Vertex> vbo_;
     cgs::gl::VertexArray vao_;
-    cgs::gl::Texture2D colorIn_, depthIn_, textureIntermediate_;
-    cgs::gl::Sampler colorSampler_, depthSampler_;
+    cgs::gl::Texture2D depthIn_;
+    cgs::gl::Sampler depthSampler_;
+    cgs::gl::Texture2D intermediateBuffer_;
+    cgs::gl::Sampler intermediateBufferSampler_;
     cgs::gl::FrameBuffer fbo_;
 
     //second path
@@ -61,9 +63,12 @@ struct DepthImageProjector::Impl
     cgs::gl::VertexBuffer<Vertex> vboScaling_;
     cgs::gl::ElementBuffer<uint> eboScaling_;
     cgs::gl::VertexArray vaoScaling_;
+    std::array<cgs::gl::Texture2D, 2> accumulationBuffer_;
+    cgs::gl::Sampler accumulationBufferSampler_;
     cgs::gl::Texture2D textureOut_;
-    cgs::gl::Sampler intermediateSampler_;
-    cgs::gl::FrameBuffer fboScaling_;
+    std::array<cgs::gl::FrameBuffer, 2> fboScaling_;
+    int currentBuffer_ = 0;
+    int previousBuffer_ = 1;
 
     //not const parameters
     std::array<float, 2> depthFocalLength_ = {};
@@ -72,38 +77,38 @@ struct DepthImageProjector::Impl
                                           0.0f,  0.0f, -1.0f, 0.0f,
                                           1.0f,  0.0f,  0.0f, 0.0f,
                                           0.0f,  0.0f,  0.0f, 1.0f}};
+    std::array<float, 16> mapToPreviousMap_ = {{0.0f, -1.0f,  0.0f, 0.0f,
+                                                0.0f,  0.0f, -1.0f, 0.0f,
+                                                1.0f,  0.0f,  0.0f, 0.0f,
+                                                0.0f,  0.0f,  0.0f, 1.0f}};
 
-    Impl(int colorWidth, int colorHeight, 
-        int depthWidth, int depthHeight,
+    Impl(int depthWidth, int depthHeight,
         int gridMapWidth, int gridMapHeight, float gridMapResolution, 
-        float gridMapLayerHeight, float gridMapAccumulationWeight,
+        float gridMapLayerHeight, float gridMapAccumulationWeight, float gridMapDecay_,
         float minDepth, float maxDepth, float depthHitThreshold, int unknownDepthColor, 
         const std::string& vertexShader, const std::string& geometryShader, const std::string& fragmentShader, 
         const std::string& vertexScalingShader, const std::string& fragmentScalingShader);
 
     void updateProjectionMatrix(
-        const std::array<float, 2> colorFocalLength, const std::array<float, 2> colorCenter, 
-        const std::array<float, 2> depthFocalLength, const std::array<float, 2> depthCenter, 
-        const std::array<float, 16> depthToColor, const std::array<float, 16> depthToMap);
-    void project(cv::Mat& dest, const cv::Mat& color, const cv::Mat& depth);
+        const std::array<float, 2>& depthFocalLength, const std::array<float, 2>& depthCenter, 
+        const std::array<float, 16>& depthToMap, const std::array<float, 16>& mapToPreviousMap);
+    void project(cv::Mat& dest, const cv::Mat& depth);
 };
 
 constexpr std::array<Vertex, 4> DepthImageProjector::Impl::SQUARE_VERTICIES;
 constexpr std::array<uint, 6>   DepthImageProjector::Impl::SQUARE_INDICIES;
 
 DepthImageProjector::Impl::Impl(
-    int colorWidth, int colorHeight, 
     int depthWidth, int depthHeight, 
     int gridMapWidth, int gridMapHeight, float gridMapResolution, 
-    float gridMapLayerHeight, float gridMapAccumulationWeight,
+    float gridMapLayerHeight, float gridMapAccumulationWeight, float gridMapDecay,
     float minDepth, float maxDepth, float depthHitThreshold, int unknownDepthColor, 
     const std::string& vertexShader, const std::string& geometryShader, const std::string& fragmentShader, 
     const std::string& vertexScalingShader, const std::string& fragmentScalingShader) :
     context_(true),
-    colorWidth_(colorWidth), colorHeight_(colorHeight), 
     depthWidth_(depthWidth), depthHeight_(depthHeight), 
     gridMapWidth_(gridMapWidth), gridMapHeight_(gridMapHeight), gridMapResolution_(gridMapResolution), 
-    gridMapLayerHeight_(gridMapLayerHeight), gridMapAccumulationWeight_(gridMapAccumulationWeight),
+    gridMapLayerHeight_(gridMapLayerHeight), gridMapAccumulationWeight_(gridMapAccumulationWeight),gridMapDecay_(gridMapDecay),
     minDepth_(minDepth), maxDepth_(maxDepth), depthHitThreshold_(depthHitThreshold), unknownDepthColor_(unknownDepthColor), 
     //first path
     shaders_({
@@ -120,12 +125,11 @@ DepthImageProjector::Impl::Impl(
         return v;
     }(depthWidth, depthHeight)),
     vbo_(verticies_, GL_STATIC_DRAW), 
-    colorIn_(GL_SRGB8, colorWidth_, colorHeight_),  
     depthIn_(GL_R16UI, depthWidth_, depthHeight_),  
-    textureIntermediate_(GL_RGB8, gridMapWidth, gridMapHeight),
-    colorSampler_(GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_BORDER, GL_CLAMP_TO_BORDER),
     depthSampler_(GL_NEAREST, GL_NEAREST, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE),
-    fbo_(textureIntermediate_), 
+    intermediateBuffer_(GL_RGBA32F, gridMapWidth, gridMapHeight),
+    intermediateBufferSampler_(GL_NEAREST, GL_NEAREST, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE),
+    fbo_(intermediateBuffer_),
     //second path
     shaderScaling_({
         cgs::gl::Shader(GL_VERTEX_SHADER,   vertexScalingShader),
@@ -134,32 +138,37 @@ DepthImageProjector::Impl::Impl(
     programScaling_(shaderScaling_),
     vboScaling_(SQUARE_VERTICIES, GL_STATIC_DRAW), 
     eboScaling_(SQUARE_INDICIES, GL_STATIC_DRAW), 
+    accumulationBuffer_({
+        cgs::gl::Texture2D(GL_RGBA32F, gridMapWidth, gridMapHeight),
+        cgs::gl::Texture2D(GL_RGBA32F, gridMapWidth, gridMapHeight),
+    }),
+    accumulationBufferSampler_(GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_BORDER, GL_CLAMP_TO_BORDER, {0, 0, 0, 0}),
     textureOut_(GL_R8, gridMapWidth, gridMapHeight),
-    intermediateSampler_(GL_NEAREST, GL_NEAREST, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE),
-    fboScaling_(textureOut_)
+    fboScaling_({
+        cgs::gl::FrameBuffer(textureOut_, accumulationBuffer_[0]),
+        cgs::gl::FrameBuffer(textureOut_, accumulationBuffer_[1]),
+    })
 {
+    //Clear accumulation bufffer
+    std::vector<float> zeros(gridMapWidth * gridMapHeight * 4, 0);
+    for (auto& buffer : accumulationBuffer_)
+        buffer.write(GL_RGBA, GL_FLOAT, zeros.data());
+
     //Shaders setup
     program_.use();
 }
 
 void DepthImageProjector::Impl::updateProjectionMatrix(
-    const std::array<float, 2> colorFocalLength, const std::array<float, 2> colorCenter, 
-    const std::array<float, 2> depthFocalLength, const std::array<float, 2> depthCenter, 
-    const std::array<float, 16> depthToColor, const std::array<float, 16> depthToMap)
+    const std::array<float, 2>& depthFocalLength, const std::array<float, 2>& depthCenter, 
+    const std::array<float, 16>& depthToMap, const std::array<float, 16>& mapToPreviousMap)
 {
-    //TODO Remove entire color image process as color image is not used anymore
-    //glUniform2fv(glGetUniformLocation(program_.get(), "colorFocalLength")  , 1, colorFocalLength.data());
-    //glUniform2fv(glGetUniformLocation(program_.get(), "colorCenter")       , 1, colorCenter.data());
-    //glUniform2fv(glGetUniformLocation(program_.get(), "depthFocalLength")  , 1, depthFocalLength.data());
-    //glUniform2fv(glGetUniformLocation(program_.get(), "depthCenter")       , 1, depthCenter.data());
-    //glUniformMatrix4fv(glGetUniformLocation(program_.get(), "depthToColor"), 1, false, depthToColor.data());
-
     depthFocalLength_ = depthFocalLength;
     depthCenter_ = depthCenter;
     depthToMap_ = depthToMap;
+    mapToPreviousMap_ = mapToPreviousMap;
 }
 
-void DepthImageProjector::Impl::project(cv::Mat& dest, const cv::Mat& color, const cv::Mat& depth)
+void DepthImageProjector::Impl::project(cv::Mat& dest, const cv::Mat& depth)
 {
     if (gridMapWidth_ != dest.cols || gridMapHeight_ != dest.rows || CV_8UC1 != dest.type())
     {
@@ -185,33 +194,14 @@ void DepthImageProjector::Impl::project(cv::Mat& dest, const cv::Mat& color, con
         return;
     }
 
-    if (colorWidth_ != color.cols || colorHeight_ != color.rows || CV_8UC3 != color.type())
-    {
-        ROS_ERROR_STREAM(
-            "color image resolution does not match."                                 << std::endl <<
-            "width:     texture=" << colorWidth_  << ", input=" << color.cols        << std::endl <<
-            "height:    texture=" << colorHeight_ << ", input=" << color.rows        << std::endl <<
-            "channel:   texture=" << 3            << ", input=" << color.channels()  << std::endl <<
-            "elemSize1: texture=" << 1            << ", input=" << color.elemSize1() << std::endl <<
-            "type:      texture=" << CV_8UC3      << ", input=" << color.type());
-        return;
-    }
-
     //first path
     {
         //Shaders setup
         program_.use();
-        std::array<float, 4> normalized_camera_pos = {
-          depthToMap_[12] / gridMapResolution_ / gridMapWidth_ * 2,
-          depthToMap_[13] / gridMapResolution_ / gridMapHeight_ * 2,
-          depthToMap_[14] / gridMapLayerHeight_ * 2,
-          depthToMap_[15]};
 
-        //glUniform2f(glGetUniformLocation(program_.get(), "colorSize"), colorWidth_, colorHeight_);
         glUniform2f(glGetUniformLocation(program_.get() , "depthSize"), depthWidth_, depthHeight_);
         glUniform1f(glGetUniformLocation(program_.get() , "depthUnit"), 0.001); //TODO change to be set with an external parameter
-        glUniform1i(glGetUniformLocation(program_.get() , "colorTexture"), 0);
-        glUniform1i(glGetUniformLocation(program_.get() , "depthTexture"), 1);
+        glUniform1i(glGetUniformLocation(program_.get() , "depthTexture"), 0);
         glUniform2f(glGetUniformLocation(program_.get() , "gridMapSize"), gridMapWidth_, gridMapHeight_);
         glUniform1f(glGetUniformLocation(program_.get() , "gridMapResolution"), gridMapResolution_);
         glUniform1f(glGetUniformLocation(program_.get() , "gridMapLayerHeight"), gridMapLayerHeight_);
@@ -221,6 +211,12 @@ void DepthImageProjector::Impl::project(cv::Mat& dest, const cv::Mat& color, con
         glUniform2fv(glGetUniformLocation(program_.get(), "depthFocalLength") , 1, depthFocalLength_.data());
         glUniform2fv(glGetUniformLocation(program_.get(), "depthCenter")      , 1, depthCenter_.data());
         glUniformMatrix4fv(glGetUniformLocation(program_.get(), "depthToMap"), 1, GL_FALSE, depthToMap_.data());
+
+        std::array<float, 4> normalized_camera_pos = {
+          depthToMap_[12] / gridMapResolution_ / gridMapWidth_ * 2,
+          depthToMap_[13] / gridMapResolution_ / gridMapHeight_ * 2,
+          depthToMap_[14] / gridMapLayerHeight_ * 2,
+          depthToMap_[15]};
         glUniform4fv(glGetUniformLocation(program_.get(), "lineOrigin"), 1, normalized_camera_pos.data());
 
         //Verticies setup
@@ -235,13 +231,9 @@ void DepthImageProjector::Impl::project(cv::Mat& dest, const cv::Mat& color, con
         glBlendFunc(GL_ONE, GL_ONE);
         glBlendEquation(GL_FUNC_ADD);
 
-        colorIn_.write(GL_RGB, GL_UNSIGNED_BYTE, color.data);
-        colorIn_.bindToUnit(0);
-        colorSampler_.bindToUnit(0);
-
         depthIn_.write(GL_RED_INTEGER, GL_UNSIGNED_SHORT, depth.data);
-        depthIn_.bindToUnit(1);
-        depthSampler_.bindToUnit(1);
+        depthIn_.bindToUnit(0);
+        depthSampler_.bindToUnit(0);
 
         fbo_.bind();
         glViewport(0, 0, gridMapWidth_, gridMapHeight_);
@@ -258,7 +250,11 @@ void DepthImageProjector::Impl::project(cv::Mat& dest, const cv::Mat& color, con
         programScaling_.use();
         glUniform2f(glGetUniformLocation(programScaling_.get(), "resolution"), gridMapWidth_, gridMapHeight_);
         glUniform1i(glGetUniformLocation(programScaling_.get(), "texture"), 0);
+        glUniform1i(glGetUniformLocation(programScaling_.get(), "accumulationTexture"), 1);
         glUniform1i(glGetUniformLocation(programScaling_.get(), "unknownDepthColor"), unknownDepthColor_);
+        glUniform1f(glGetUniformLocation(programScaling_.get(), "gridMapDecay"), gridMapDecay_);
+        glUniform1f(glGetUniformLocation(programScaling_.get(), "gridMapResolution"), gridMapResolution_);
+        glUniformMatrix4fv(glGetUniformLocation(programScaling_.get(), "mapToPreviousMap"), 1, GL_FALSE, mapToPreviousMap_.data());
 
         //Verticies setup
         vaoScaling_.mapVariable(vboScaling_, glGetAttribLocation(programScaling_.get(), "position"), 3, GL_FLOAT, 0);
@@ -268,10 +264,12 @@ void DepthImageProjector::Impl::project(cv::Mat& dest, const cv::Mat& color, con
         glDisable(GL_DEPTH_CLAMP); 
         glDisable(GL_BLEND);
 
-        textureIntermediate_.bindToUnit(0);
-        intermediateSampler_.bindToUnit(0);
+        intermediateBuffer_.bindToUnit(0);
+        intermediateBufferSampler_.bindToUnit(0);
+        accumulationBuffer_[previousBuffer_].bindToUnit(1);
+        accumulationBufferSampler_.bindToUnit(1);
 
-        fboScaling_.bind();
+        fboScaling_[currentBuffer_].bind();
         glViewport(0, 0, gridMapWidth_, gridMapHeight_);
 
         vaoScaling_.bind();
@@ -282,22 +280,23 @@ void DepthImageProjector::Impl::project(cv::Mat& dest, const cv::Mat& color, con
 
     //Read result
     textureOut_.read(GL_RED, GL_UNSIGNED_BYTE, dest.data, dest.rows * dest.cols * dest.channels());
+
+    //Swap buffers
+    std::swap(currentBuffer_, previousBuffer_);
 }
 
 DepthImageProjector::DepthImageProjector(
-    int colorWidth, int colorHeight, 
     int depthWidth, int depthHeight, 
     int gridMapWidth, int gridMapHeight, float gridMapResolution, 
-    float gridMapLayerHeight, float gridMapAccumulationWeight, 
+    float gridMapLayerHeight, float gridMapAccumulationWeight, float gridMapDecay,
     float minDepth, float maxDepth, float depthHitThreshold, int unknownDepthColor, 
     const std::string& vertexShader, const std::string& geometryShader, const std::string& fragmentShader,
     const std::string& vertexScalingShader, const std::string& fragmentScalingShader)
 try
     : impl_(std::make_unique<DepthImageProjector::Impl>(
-        colorWidth, colorHeight, 
         depthWidth, depthHeight, 
         gridMapWidth, gridMapHeight, gridMapResolution, 
-        gridMapLayerHeight, gridMapAccumulationWeight, 
+        gridMapLayerHeight, gridMapAccumulationWeight, gridMapDecay, 
         minDepth, maxDepth, depthHitThreshold, unknownDepthColor, 
         vertexShader, geometryShader, fragmentShader, 
         vertexScalingShader, fragmentScalingShader))
@@ -317,19 +316,15 @@ catch (cgs::gl::Exception& e)
 DepthImageProjector::~DepthImageProjector() = default;
 
 void DepthImageProjector::updateProjectionMatrix(
-    const std::array<float, 2> colorFocalLength, const std::array<float, 2> colorCenter, 
-    const std::array<float, 2> depthFocalLength, const std::array<float, 2> depthCenter, 
-    const std::array<float, 16> depthToColor,
-    const std::array<float, 16> depthToMap)
+    const std::array<float, 2>& depthFocalLength, const std::array<float, 2>& depthCenter, 
+    const std::array<float, 16>& depthToMap, const std::array<float, 16>& mapToPreviousMap)
 {
     impl_->updateProjectionMatrix(
-        colorFocalLength, colorCenter, 
         depthFocalLength, depthCenter, 
-        depthToColor,
-        depthToMap);
+        depthToMap, mapToPreviousMap);
 }
 
-void DepthImageProjector::project(cv::Mat& dest, const cv::Mat& color, const cv::Mat& depth)
+void DepthImageProjector::project(cv::Mat& dest, const cv::Mat& depth)
 {
-    impl_->project(dest, color, depth);
+    impl_->project(dest, depth);
 }
