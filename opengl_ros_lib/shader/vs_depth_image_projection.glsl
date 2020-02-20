@@ -6,13 +6,6 @@ uniform vec2 depthFocalLength;
 uniform vec2 depthCenter;
 uniform vec2 validDepthInMeter;
 
-//TODO Remove entire color image process as color image is not used anymore
-uniform vec2 colorSize;
-uniform vec2 colorFocalLength;
-uniform vec2 colorCenter;
-uniform mat4 depthToColor;
-//TODO Remove entire color image process as color image is not used anymore
-
 uniform mat4 depthToMap;
 
 uniform vec2 gridMapSize;

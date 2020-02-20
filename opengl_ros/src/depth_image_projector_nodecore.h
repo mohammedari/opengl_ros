@@ -22,7 +22,6 @@ class DepthImageProjectorNode
     image_transport::ImageTransport it_;
 
     //tf
-    std::string color_frame_id_;
     std::string depth_frame_id_;
     std::string map_frame_id_;
     tf::TransformListener tfListener_;
@@ -34,22 +33,14 @@ class DepthImageProjectorNode
 
     //Publishers and Subscribers
     ros::Publisher mapPublisher_;
-    image_transport::CameraSubscriber colorSubscriber_;
     image_transport::CameraSubscriber depthSubscriber_;
-    ros::Subscriber depthToColorSubscriber_;
     
     //Other members
     std::unique_ptr<cgs::DepthImageProjector> projector_;
     cv::Mat output_;
 
-    cv_bridge::CvImageConstPtr latestColorImagePtr;
-    sensor_msgs::CameraInfo    latestColorCameraInfo;
-    void colorCallback(const sensor_msgs::Image::ConstPtr& imageMsg, const sensor_msgs::CameraInfoConstPtr & cameraInfoMsg);
     void depthCallback(const sensor_msgs::Image::ConstPtr& imageMsg, const sensor_msgs::CameraInfoConstPtr & cameraInfoMsg);
-    bool depthToColorArrived_ = false;
     void getTransformMatrixArray(const tf::Transform& transform, std::array<float, 16>& matrix);
-    std::array<float, 16> latestDepthToColor_;
-    bool updateDepthToColor();
 
 public:
     DepthImageProjectorNode(const ros::NodeHandle& nh, const ros::NodeHandle& nh_private);

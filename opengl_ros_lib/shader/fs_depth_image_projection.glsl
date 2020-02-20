@@ -9,16 +9,8 @@ out vec3 fragmentColor;
 //y ... 1.0 if valid depth is measured in any ray
 //z ... 1.0 if any ray achieved at the pixel 
 
-//TODO Remove entire color image process as color image is not used anymore
-uniform sampler2D colorTexture; 
-uniform float threshold_l;
-uniform float svm_coef_a;
-uniform float svm_coef_b;
-uniform float svm_intercept;
-//TODO Remove entire color image process as color image is not used anymore
-
-in float depth;
-in float hitDepth;
+in float depth;    //depth value of the pixel on the line
+in float hitDepth; //depth value of the end of the line
 
 void main(void)
 {

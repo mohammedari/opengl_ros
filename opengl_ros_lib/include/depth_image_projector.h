@@ -17,7 +17,6 @@ class DepthImageProjector final
 {
 public:
     DepthImageProjector(
-        int colorWidth, int colorHeight, 
         int depthWidth, int depthHeight, 
         int gridMapWidth, int gridMapHeight, float gridMapResolution, 
         float gridMapLayerHeight, float gridMapAccumulationWeight,
@@ -27,10 +26,9 @@ public:
     ~DepthImageProjector();
 
     void updateProjectionMatrix(
-        const std::array<float, 2> colorFocalLength, const std::array<float, 2> colorCenter, 
         const std::array<float, 2> depthFocalLength, const std::array<float, 2> depthCenter, 
-        const std::array<float, 16> depthToColor, const std::array<float, 16> depthToMap);
-    void project(cv::Mat& dest, const cv::Mat& color, const cv::Mat& depth);
+        const std::array<float, 16> depthToMap);
+    void project(cv::Mat& dest, const cv::Mat& depth);
 
     DepthImageProjector(const DepthImageProjector&) = delete;
     DepthImageProjector& operator=(const DepthImageProjector&) = delete;
