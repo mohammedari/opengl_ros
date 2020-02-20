@@ -7,8 +7,6 @@ uniform float gridMapDecay;
 uniform float gridMapResolution;
 uniform mat4 mapToPreviousMap;
 
-in vec4 gl_FragCoord;
-
 layout(location = 0) out float fragmentColor;
 //output 0 - 100 if valid depth is measured
 //output `unknownDepthColor` if valid depth is not measured

@@ -3,16 +3,16 @@
   <arg name="bag_prefix"                   default="/mnt/log/d435"/>
   <arg name="depth_width"                  default="640"/>
   <arg name="depth_height"                 default="360"/>
-  <arg name="depth_min"                    default="0.105"/>
+  <arg name="depth_min"                    default="0.3"/>
   <arg name="depth_max"                    default="10"/>
-  <arg name="depth_hit_threshold"          default="0.95"/>
+  <arg name="depth_hit_threshold"          default="0.1"/>
   <arg name="depth_unknown_color"          default="0"/> <!-- 0 to 255 -->
   <arg name="grid_map_width"               default="200"/>
   <arg name="grid_map_height"              default="200"/>
   <arg name="grid_map_resolution"          default="0.1"/>
-  <arg name="grid_map_layer_height"        default="3.0"/>
+  <arg name="grid_map_layer_height"        default="2.0"/>
   <arg name="grid_map_accumulation_weight" default="0.001"/> 
-  <arg name="grid_map_decay"               default="0.5"/> 
+  <arg name="grid_map_decay"               default="0.95"/> 
   <arg name="frame_rate"                   default="30"/>
 
   <node pkg="opengl_ros" type="depth_image_projector"

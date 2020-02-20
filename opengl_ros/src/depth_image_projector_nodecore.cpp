@@ -32,7 +32,7 @@ DepthImageProjectorNode::DepthImageProjectorNode(const ros::NodeHandle& nh, cons
     int unknownDepthColor;
     nh_.param<double>("min_depth", minDepth, 0.105);
     nh_.param<double>("max_depth", maxDepth, 10);
-    nh_.param<double>("depth_hit_threshold", depthHitThreshold, 0.95);
+    nh_.param<double>("depth_hit_threshold", depthHitThreshold, 0.01);
     nh_.param<int>("unknown_depth_color", unknownDepthColor, 255);
 
     std::string vertexShader, geometryShader, fragmentShader, vertexShaderScaling, fragmentShaderScaling;
