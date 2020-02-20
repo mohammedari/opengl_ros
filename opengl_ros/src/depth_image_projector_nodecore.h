@@ -24,8 +24,10 @@ class DepthImageProjectorNode
     //tf
     std::string depth_frame_id_;
     std::string map_frame_id_;
+    std::string fixed_frame_id_;
     tf::TransformListener tfListener_;
     double tf_wait_duration_;
+    ros::Time previousTimestamp_{0};
 
     //Other parameters
     int gridMapWidth_, gridMapHeight_;

@@ -19,15 +19,15 @@ public:
     DepthImageProjector(
         int depthWidth, int depthHeight, 
         int gridMapWidth, int gridMapHeight, float gridMapResolution, 
-        float gridMapLayerHeight, float gridMapAccumulationWeight,
+        float gridMapLayerHeight, float gridMapAccumulationWeight, float gridMapDecay, 
         float minDepth, float maxDepth, float depthHitThreshold, int unknownDepthColor, 
         const std::string& vertexShader, const std::string& geometryShader, const std::string& fragmentShader,
         const std::string& vertexScalingShader, const std::string& fragmentScalingShader); 
     ~DepthImageProjector();
 
     void updateProjectionMatrix(
-        const std::array<float, 2> depthFocalLength, const std::array<float, 2> depthCenter, 
-        const std::array<float, 16> depthToMap);
+        const std::array<float, 2>& depthFocalLength, const std::array<float, 2>& depthCenter, 
+        const std::array<float, 16>& depthToMap, const std::array<float, 16>& mapToPreviousMap);
     void project(cv::Mat& dest, const cv::Mat& depth);
 
     DepthImageProjector(const DepthImageProjector&) = delete;

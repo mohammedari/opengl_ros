@@ -13,18 +13,20 @@ DepthImageProjectorNode::DepthImageProjectorNode(const ros::NodeHandle& nh, cons
 
     nh_.param<std::string>("depth_frame_id", depth_frame_id_, "d435_depth_optical");
     nh_.param<std::string>("map_frame_id", map_frame_id_, "base_link_hor");
+    nh_.param<std::string>("fixed_frame_id", fixed_frame_id_, "map");
     nh_.param<double>("tf_wait_duration", tf_wait_duration_, 0.1);
 
     int depthWidth, depthHeight;
     nh_.param<int>("depth_width" , depthWidth , 640);
     nh_.param<int>("depth_height", depthHeight, 360);
 
-    double gridMapLayerHeight, gridMapAccumulationWeight;
+    double gridMapLayerHeight, gridMapAccumulationWeight, gridMapDecay;
     nh_.param<int>("grid_map_width" , gridMapWidth_ , 1000);
     nh_.param<int>("grid_map_height", gridMapHeight_, 1000);
     nh_.param<double>("grid_map_resolution", gridMapResolution_, 0.01);
     nh_.param<double>("grid_map_layer_height", gridMapLayerHeight, 1);
-    nh_.param<double>("grid_map_accumulation_weight", gridMapAccumulationWeight, 1);
+    nh_.param<double>("grid_map_accumulation_weight", gridMapAccumulationWeight, 0.001);
+    nh_.param<double>("grid_map_decay", gridMapDecay, 0.5);
 
     double minDepth, maxDepth, depthHitThreshold;
     int unknownDepthColor;
@@ -43,7 +45,7 @@ DepthImageProjectorNode::DepthImageProjectorNode(const ros::NodeHandle& nh, cons
     projector_ = std::make_unique<cgs::DepthImageProjector>(
         depthWidth, depthHeight, 
         gridMapWidth_, gridMapHeight_, gridMapResolution_, 
-        gridMapLayerHeight, gridMapAccumulationWeight,
+        gridMapLayerHeight, gridMapAccumulationWeight, gridMapDecay, 
         minDepth, maxDepth, depthHitThreshold, unknownDepthColor, 
         vertexShader, geometryShader, fragmentShader, 
         vertexShaderScaling, fragmentShaderScaling
@@ -64,8 +66,12 @@ void DepthImageProjectorNode::depthCallback(const sensor_msgs::Image::ConstPtr& 
         ROS_ERROR_STREAM("cv_bridge exception: " << e.what());
         return;
     }
+
+    //called first time 
+    if (!previousTimestamp_.isValid())
+        previousTimestamp_ = cameraInfoMsg->header.stamp;    
     
-    std::array<float, 16> depthToMap;
+    std::array<float, 16> depthToMap, mapToPreviousMap;
     try
     {
         if (tfListener_.waitForTransform(map_frame_id_, cameraInfoMsg->header.frame_id,
@@ -76,6 +82,17 @@ void DepthImageProjectorNode::depthCallback(const sensor_msgs::Image::ConstPtr& 
                 cameraInfoMsg->header.stamp, transform);
             getTransformMatrixArray(transform, depthToMap);
         }
+
+        if (tfListener_.waitForTransform(map_frame_id_, fixed_frame_id_,
+              cameraInfoMsg->header.stamp, ros::Duration(tf_wait_duration_)))
+        {
+            tf::StampedTransform tramsform;
+            tfListener_.lookupTransform(
+                map_frame_id_, previousTimestamp_,
+                map_frame_id_, cameraInfoMsg->header.stamp, 
+                fixed_frame_id_, tramsform);
+            getTransformMatrixArray(tramsform, mapToPreviousMap);
+        }
     }
     catch (tf::TransformException& ex)
     {
@@ -83,11 +100,14 @@ void DepthImageProjectorNode::depthCallback(const sensor_msgs::Image::ConstPtr& 
         return;
     }
 
+    //Update previous timestamp
+    previousTimestamp_ = cameraInfoMsg->header.stamp;    
+
     //Update projector parameters with camera info
     projector_->updateProjectionMatrix(
-        {static_cast<float>(cameraInfoMsg->K[0])           , static_cast<float>(cameraInfoMsg->K[4])}, 
-        {static_cast<float>(cameraInfoMsg->K[2])           , static_cast<float>(cameraInfoMsg->K[5])}, 
-        depthToMap
+        {static_cast<float>(cameraInfoMsg->K[0]), static_cast<float>(cameraInfoMsg->K[4])}, 
+        {static_cast<float>(cameraInfoMsg->K[2]), static_cast<float>(cameraInfoMsg->K[5])}, 
+        depthToMap, mapToPreviousMap
     );
 
     //Perform projection
@@ -115,7 +135,6 @@ void DepthImageProjectorNode::depthCallback(const sensor_msgs::Image::ConstPtr& 
     grid.data.reserve(size);
     std::copy(data, data + size, std::back_inserter(grid.data));
     mapPublisher_.publish(grid);
-
 }
 
 void DepthImageProjectorNode::getTransformMatrixArray(const tf::Transform& transform, std::array<float, 16>& matrix)

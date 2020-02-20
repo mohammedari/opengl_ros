@@ -11,13 +11,15 @@
   <arg name="grid_map_height"              default="200"/>
   <arg name="grid_map_resolution"          default="0.1"/>
   <arg name="grid_map_layer_height"        default="3.0"/>
-  <arg name="grid_map_accumulation_weight" default="0.004"/> <!-- 0.004 for 1/255 -->
+  <arg name="grid_map_accumulation_weight" default="0.001"/> 
+  <arg name="grid_map_decay"               default="0.5"/> 
   <arg name="frame_rate"                   default="30"/>
 
   <node pkg="opengl_ros" type="depth_image_projector"
     name="depth_image_projector" output="screen">
     <param name="depth_frame_id"               value="d435_depth_optical"/>
     <param name="map_frame_id"                 value="base_link_hor"/>
+    <param name="fixed_frame_id"               value="map"/>
     <param name="tf_wait_duration"             value="0.1"/>
 
     <param name="depth_width"                  value="$(arg depth_width)"/>
@@ -33,6 +35,7 @@
     <param name="grid_map_resolution"          value="$(arg grid_map_resolution)"/>
     <param name="grid_map_layer_height"        value="$(arg grid_map_layer_height)"/>
     <param name="grid_map_accumulation_weight" value="$(arg grid_map_accumulation_weight)"/>
+    <param name="grid_map_decay"               value="$(arg grid_map_decay)"/>
 
     <param name="vertex_shader"                value="$(find opengl_ros_lib)/shader/vs_depth_image_projection.glsl"/>
     <param name="geometry_shader"              value="$(find opengl_ros_lib)/shader/gs_depth_image_projection.glsl"/>

@@ -39,6 +39,7 @@ struct DepthImageProjector::Impl
     const float gridMapResolution_;
     const float gridMapLayerHeight_;
     const float gridMapAccumulationWeight_;
+    const float gridMapDecay_;
     const float minDepth_;
     const float maxDepth_;
     const float depthHitThreshold_;
@@ -50,8 +51,10 @@ struct DepthImageProjector::Impl
     std::vector<Vertex> verticies_;
     cgs::gl::VertexBuffer<Vertex> vbo_;
     cgs::gl::VertexArray vao_;
-    cgs::gl::Texture2D depthIn_, textureIntermediate_;
+    cgs::gl::Texture2D depthIn_;
     cgs::gl::Sampler depthSampler_;
+    cgs::gl::Texture2D intermediateBuffer_;
+    cgs::gl::Sampler intermediateBufferSampler_;
     cgs::gl::FrameBuffer fbo_;
 
     //second path
@@ -60,9 +63,12 @@ struct DepthImageProjector::Impl
     cgs::gl::VertexBuffer<Vertex> vboScaling_;
     cgs::gl::ElementBuffer<uint> eboScaling_;
     cgs::gl::VertexArray vaoScaling_;
+    std::array<cgs::gl::Texture2D, 2> accumulationBuffer_;
+    cgs::gl::Sampler accumulationBufferSampler_;
     cgs::gl::Texture2D textureOut_;
-    cgs::gl::Sampler intermediateSampler_;
-    cgs::gl::FrameBuffer fboScaling_;
+    std::array<cgs::gl::FrameBuffer, 2> fboScaling_;
+    int currentBuffer_ = 0;
+    int previousBuffer_ = 1;
 
     //not const parameters
     std::array<float, 2> depthFocalLength_ = {};
@@ -71,17 +77,21 @@ struct DepthImageProjector::Impl
                                           0.0f,  0.0f, -1.0f, 0.0f,
                                           1.0f,  0.0f,  0.0f, 0.0f,
                                           0.0f,  0.0f,  0.0f, 1.0f}};
+    std::array<float, 16> mapToPreviousMap_ = {{0.0f, -1.0f,  0.0f, 0.0f,
+                                                0.0f,  0.0f, -1.0f, 0.0f,
+                                                1.0f,  0.0f,  0.0f, 0.0f,
+                                                0.0f,  0.0f,  0.0f, 1.0f}};
 
     Impl(int depthWidth, int depthHeight,
         int gridMapWidth, int gridMapHeight, float gridMapResolution, 
-        float gridMapLayerHeight, float gridMapAccumulationWeight,
+        float gridMapLayerHeight, float gridMapAccumulationWeight, float gridMapDecay_,
         float minDepth, float maxDepth, float depthHitThreshold, int unknownDepthColor, 
         const std::string& vertexShader, const std::string& geometryShader, const std::string& fragmentShader, 
         const std::string& vertexScalingShader, const std::string& fragmentScalingShader);
 
     void updateProjectionMatrix(
-        const std::array<float, 2> depthFocalLength, const std::array<float, 2> depthCenter, 
-        const std::array<float, 16> depthToMap);
+        const std::array<float, 2>& depthFocalLength, const std::array<float, 2>& depthCenter, 
+        const std::array<float, 16>& depthToMap, const std::array<float, 16>& mapToPreviousMap);
     void project(cv::Mat& dest, const cv::Mat& depth);
 };
 
@@ -91,14 +101,14 @@ constexpr std::array<uint, 6>   DepthImageProjector::Impl::SQUARE_INDICIES;
 DepthImageProjector::Impl::Impl(
     int depthWidth, int depthHeight, 
     int gridMapWidth, int gridMapHeight, float gridMapResolution, 
-    float gridMapLayerHeight, float gridMapAccumulationWeight,
+    float gridMapLayerHeight, float gridMapAccumulationWeight, float gridMapDecay,
     float minDepth, float maxDepth, float depthHitThreshold, int unknownDepthColor, 
     const std::string& vertexShader, const std::string& geometryShader, const std::string& fragmentShader, 
     const std::string& vertexScalingShader, const std::string& fragmentScalingShader) :
     context_(true),
     depthWidth_(depthWidth), depthHeight_(depthHeight), 
     gridMapWidth_(gridMapWidth), gridMapHeight_(gridMapHeight), gridMapResolution_(gridMapResolution), 
-    gridMapLayerHeight_(gridMapLayerHeight), gridMapAccumulationWeight_(gridMapAccumulationWeight),
+    gridMapLayerHeight_(gridMapLayerHeight), gridMapAccumulationWeight_(gridMapAccumulationWeight),gridMapDecay_(gridMapDecay),
     minDepth_(minDepth), maxDepth_(maxDepth), depthHitThreshold_(depthHitThreshold), unknownDepthColor_(unknownDepthColor), 
     //first path
     shaders_({
@@ -116,9 +126,10 @@ DepthImageProjector::Impl::Impl(
     }(depthWidth, depthHeight)),
     vbo_(verticies_, GL_STATIC_DRAW), 
     depthIn_(GL_R16UI, depthWidth_, depthHeight_),  
-    textureIntermediate_(GL_RGB8, gridMapWidth, gridMapHeight),
     depthSampler_(GL_NEAREST, GL_NEAREST, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE),
-    fbo_(textureIntermediate_), 
+    intermediateBuffer_(GL_RGBA32F, gridMapWidth, gridMapHeight),
+    intermediateBufferSampler_(GL_NEAREST, GL_NEAREST, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE),
+    fbo_(intermediateBuffer_),
     //second path
     shaderScaling_({
         cgs::gl::Shader(GL_VERTEX_SHADER,   vertexScalingShader),
@@ -127,21 +138,34 @@ DepthImageProjector::Impl::Impl(
     programScaling_(shaderScaling_),
     vboScaling_(SQUARE_VERTICIES, GL_STATIC_DRAW), 
     eboScaling_(SQUARE_INDICIES, GL_STATIC_DRAW), 
+    accumulationBuffer_({
+        cgs::gl::Texture2D(GL_RGBA32F, gridMapWidth, gridMapHeight),
+        cgs::gl::Texture2D(GL_RGBA32F, gridMapWidth, gridMapHeight),
+    }),
+    accumulationBufferSampler_(GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_BORDER, GL_CLAMP_TO_BORDER, {0, 0, 0, 0}),
     textureOut_(GL_R8, gridMapWidth, gridMapHeight),
-    intermediateSampler_(GL_NEAREST, GL_NEAREST, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE),
-    fboScaling_(textureOut_)
+    fboScaling_({
+        cgs::gl::FrameBuffer(textureOut_, accumulationBuffer_[0]),
+        cgs::gl::FrameBuffer(textureOut_, accumulationBuffer_[1]),
+    })
 {
+    //Clear accumulation bufffer
+    std::vector<float> zeros(gridMapWidth * gridMapHeight * 4, 0);
+    for (auto& buffer : accumulationBuffer_)
+        buffer.write(GL_RGBA, GL_FLOAT, zeros.data());
+
     //Shaders setup
     program_.use();
 }
 
 void DepthImageProjector::Impl::updateProjectionMatrix(
-    const std::array<float, 2> depthFocalLength, const std::array<float, 2> depthCenter, 
-    const std::array<float, 16> depthToMap)
+    const std::array<float, 2>& depthFocalLength, const std::array<float, 2>& depthCenter, 
+    const std::array<float, 16>& depthToMap, const std::array<float, 16>& mapToPreviousMap)
 {
     depthFocalLength_ = depthFocalLength;
     depthCenter_ = depthCenter;
     depthToMap_ = depthToMap;
+    mapToPreviousMap_ = mapToPreviousMap;
 }
 
 void DepthImageProjector::Impl::project(cv::Mat& dest, const cv::Mat& depth)
@@ -226,7 +250,11 @@ void DepthImageProjector::Impl::project(cv::Mat& dest, const cv::Mat& depth)
         programScaling_.use();
         glUniform2f(glGetUniformLocation(programScaling_.get(), "resolution"), gridMapWidth_, gridMapHeight_);
         glUniform1i(glGetUniformLocation(programScaling_.get(), "texture"), 0);
+        glUniform1i(glGetUniformLocation(programScaling_.get(), "accumulationTexture"), 1);
         glUniform1i(glGetUniformLocation(programScaling_.get(), "unknownDepthColor"), unknownDepthColor_);
+        glUniform1f(glGetUniformLocation(programScaling_.get(), "gridMapDecay"), gridMapDecay_);
+        glUniform1f(glGetUniformLocation(programScaling_.get(), "gridMapResolution"), gridMapResolution_);
+        glUniformMatrix4fv(glGetUniformLocation(programScaling_.get(), "mapToPreviousMap"), 1, GL_FALSE, mapToPreviousMap_.data());
 
         //Verticies setup
         vaoScaling_.mapVariable(vboScaling_, glGetAttribLocation(programScaling_.get(), "position"), 3, GL_FLOAT, 0);
@@ -236,10 +264,12 @@ void DepthImageProjector::Impl::project(cv::Mat& dest, const cv::Mat& depth)
         glDisable(GL_DEPTH_CLAMP); 
         glDisable(GL_BLEND);
 
-        textureIntermediate_.bindToUnit(0);
-        intermediateSampler_.bindToUnit(0);
+        intermediateBuffer_.bindToUnit(0);
+        intermediateBufferSampler_.bindToUnit(0);
+        accumulationBuffer_[previousBuffer_].bindToUnit(1);
+        accumulationBufferSampler_.bindToUnit(1);
 
-        fboScaling_.bind();
+        fboScaling_[currentBuffer_].bind();
         glViewport(0, 0, gridMapWidth_, gridMapHeight_);
 
         vaoScaling_.bind();
@@ -250,12 +280,15 @@ void DepthImageProjector::Impl::project(cv::Mat& dest, const cv::Mat& depth)
 
     //Read result
     textureOut_.read(GL_RED, GL_UNSIGNED_BYTE, dest.data, dest.rows * dest.cols * dest.channels());
+
+    //Swap buffers
+    std::swap(currentBuffer_, previousBuffer_);
 }
 
 DepthImageProjector::DepthImageProjector(
     int depthWidth, int depthHeight, 
     int gridMapWidth, int gridMapHeight, float gridMapResolution, 
-    float gridMapLayerHeight, float gridMapAccumulationWeight, 
+    float gridMapLayerHeight, float gridMapAccumulationWeight, float gridMapDecay,
     float minDepth, float maxDepth, float depthHitThreshold, int unknownDepthColor, 
     const std::string& vertexShader, const std::string& geometryShader, const std::string& fragmentShader,
     const std::string& vertexScalingShader, const std::string& fragmentScalingShader)
@@ -263,7 +296,7 @@ try
     : impl_(std::make_unique<DepthImageProjector::Impl>(
         depthWidth, depthHeight, 
         gridMapWidth, gridMapHeight, gridMapResolution, 
-        gridMapLayerHeight, gridMapAccumulationWeight, 
+        gridMapLayerHeight, gridMapAccumulationWeight, gridMapDecay, 
         minDepth, maxDepth, depthHitThreshold, unknownDepthColor, 
         vertexShader, geometryShader, fragmentShader, 
         vertexScalingShader, fragmentScalingShader))
@@ -283,12 +316,12 @@ catch (cgs::gl::Exception& e)
 DepthImageProjector::~DepthImageProjector() = default;
 
 void DepthImageProjector::updateProjectionMatrix(
-    const std::array<float, 2> depthFocalLength, const std::array<float, 2> depthCenter, 
-    const std::array<float, 16> depthToMap)
+    const std::array<float, 2>& depthFocalLength, const std::array<float, 2>& depthCenter, 
+    const std::array<float, 16>& depthToMap, const std::array<float, 16>& mapToPreviousMap)
 {
     impl_->updateProjectionMatrix(
         depthFocalLength, depthCenter, 
-        depthToMap);
+        depthToMap, mapToPreviousMap);
 }
 
 void DepthImageProjector::project(cv::Mat& dest, const cv::Mat& depth)
