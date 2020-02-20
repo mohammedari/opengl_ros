@@ -81,6 +81,9 @@ void DepthImageProjectorNode::depthCallback(const sensor_msgs::Image::ConstPtr& 
             tfListener_.lookupTransform(map_frame_id_, cameraInfoMsg->header.frame_id,
                 cameraInfoMsg->header.stamp, transform);
             getTransformMatrixArray(transform, depthToMap);
+        } else {
+            ROS_WARN_STREAM("TF wait transform timeout in depthCallback().");
+            return;
         }
 
         if (tfListener_.waitForTransform(map_frame_id_, fixed_frame_id_,
@@ -92,11 +95,20 @@ void DepthImageProjectorNode::depthCallback(const sensor_msgs::Image::ConstPtr& 
                 map_frame_id_, cameraInfoMsg->header.stamp, 
                 fixed_frame_id_, tramsform);
             getTransformMatrixArray(tramsform, mapToPreviousMap);
+        } else {
+            ROS_WARN_STREAM("TF wait transform timeout in depthCallback().");
+
+            //stop accumulation in case required TF is already removed from the cache
+            previousTimestamp_ = cameraInfoMsg->header.stamp;    
+            return;
         }
     }
     catch (tf::TransformException& ex)
     {
         ROS_WARN("Transform Exception in depthCallback(). %s", ex.what());
+
+        //stop accumulation in case required TF is already removed from the cache
+        previousTimestamp_ = cameraInfoMsg->header.stamp;    
         return;
     }
 
