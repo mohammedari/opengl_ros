@@ -18,8 +18,9 @@ layout(location = 1) out vec3 accumulationOutput;
 void main(void)
 {
     //sample previous buffer
-    vec4 previousFragCoord = mapToPreviousMap * vec4(gl_FragCoord.xy * gridMapResolution, 0, 1) / gridMapResolution;
-    vec2 previousUv = previousFragCoord.xy / resolution;
+    vec2 xyInMeter = (gl_FragCoord.xy - resolution / 2) * gridMapResolution;
+    vec2 previousFragCoord = (mapToPreviousMap * vec4(xyInMeter, 0, 1)).xy / gridMapResolution + resolution / 2;
+    vec2 previousUv = previousFragCoord / resolution;
     vec3 previousColor = texture2D(accumulationTexture, previousUv).xyz;
 
     //sample current buffer and accumulate
