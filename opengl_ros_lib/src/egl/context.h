@@ -20,7 +20,7 @@ public:
         : display_(display)
     {
         handleError(
-            eglBindAPI(EGL_OPENGL_API),·
+            eglBindAPI(EGL_OPENGL_API), 
             "Failed to bind OpenGL API.");
 
         constexpr std::array<EGLint, 1> configAttributes = {
@@ -29,7 +29,7 @@ public:
         EGLConfig config;
         EGLint numConfig;
         handleError(
-            eglChooseConfig(display_.get(), configAttributes.data(), &config, 1, &numConfig),·
+            eglChooseConfig(display_.get(), configAttributes.data(), &config, 1, &numConfig), 
             "Failed to choose config");
 
         //Specifying OpenGL Core 4.5; this should be much glad loader profile.
@@ -45,14 +45,14 @@ public:
         }
 
         handleError(
-            eglMakeCurrent(display_.get(), EGL_NO_SURFACE, EGL_NO_SURFACE, context_),··
+            eglMakeCurrent(display_.get(), EGL_NO_SURFACE, EGL_NO_SURFACE, context_),  
             "Failed to make EGL context current.");
     }
     ~Context()
     {
 
         handleError(
-            eglDestroyContext(display_.get(), context_),·
+            eglDestroyContext(display_.get(), context_), 
             "Failed to destroy EGL context.");
     }
 
