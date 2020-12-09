@@ -2,6 +2,7 @@
 #define CGS_EGL_DISPLAY_H
 
 #include <EGL/egl.h>
+#include <EGL/eglext.h>
 
 #include "exception.h"
 
@@ -17,7 +18,18 @@ class Display final
 public:
     explicit Display(decltype(EGL_DEFAULT_DISPLAY) display_id = EGL_DEFAULT_DISPLAY)
     {
-        display_ = eglGetDisplay(display_id);
+        //display_ = eglGetDisplay(display_id);
+	static const int MAX_DEVICES = 4;
+	EGLDeviceEXT eglDevs[MAX_DEVICES];
+	EGLint numDevices;
+	
+	PFNEGLQUERYDEVICESEXTPROC eglQueryDevicesEXT = (PFNEGLQUERYDEVICESEXTPROC)eglGetProcAddress("eglQueryDevicesEXT");
+	eglQueryDevicesEXT(MAX_DEVICES, eglDevs, &numDevices);
+	
+	printf("Detected %d devices\n", numDevices);
+	
+	PFNEGLGETPLATFORMDISPLAYEXTPROC eglGetPlatformDisplayEXT = (PFNEGLGETPLATFORMDISPLAYEXTPROC)eglGetProcAddress("eglGetPlatformDisplayEXT");
+	EGLDisplay display_ = eglGetPlatformDisplayEXT(EGL_PLATFORM_DEVICE_EXT, eglDevs[0], 0);  
         if (display_ == EGL_NO_DISPLAY) {
             handleError("Failed to get EGL display.");
         }
