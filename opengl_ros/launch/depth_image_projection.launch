@@ -1,0 +1,49 @@
+<?xml version="1.0"?>
+<launch>
+  <arg name="bag_prefix"                   default="/mnt/log/d435"/>
+  <arg name="depth_width"                  default="640"/>
+  <arg name="depth_height"                 default="360"/>
+  <arg name="depth_min"                    default="0.3"/>
+  <arg name="depth_max"                    default="10"/>
+  <arg name="depth_hit_threshold"          default="0.1"/>
+  <arg name="depth_unknown_color"          default="0"/> <!-- 0 to 255 -->
+  <arg name="grid_map_width"               default="200"/>
+  <arg name="grid_map_height"              default="200"/>
+  <arg name="grid_map_resolution"          default="0.1"/>
+  <arg name="grid_map_layer_height"        default="2.0"/>
+  <arg name="grid_map_accumulation_weight" default="0.001"/> 
+  <arg name="grid_map_decay"               default="0.95"/> 
+  <arg name="frame_rate"                   default="30"/>
+
+  <node pkg="opengl_ros" type="depth_image_projector"
+    name="depth_image_projector" output="screen">
+    <param name="depth_frame_id"               value="d435_depth_optical"/>
+    <param name="map_frame_id"                 value="base_link_hor"/>
+    <param name="fixed_frame_id"               value="map"/>
+    <param name="tf_wait_duration"             value="0.1"/>
+
+    <param name="depth_width"                  value="$(arg depth_width)"/>
+    <param name="depth_height"                 value="$(arg depth_height)"/>
+
+    <param name="min_depth"                    value="$(arg depth_min)"/>
+    <param name="max_depth"                    value="$(arg depth_max)"/>
+    <param name="depth_hit_threshold"          value="$(arg depth_hit_threshold)"/>
+    <param name="unknown_depth_color"          value="$(arg depth_unknown_color)"/>
+
+    <param name="grid_map_width"               value="$(arg grid_map_width)"/>
+    <param name="grid_map_height"              value="$(arg grid_map_height)"/>
+    <param name="grid_map_resolution"          value="$(arg grid_map_resolution)"/>
+    <param name="grid_map_layer_height"        value="$(arg grid_map_layer_height)"/>
+    <param name="grid_map_accumulation_weight" value="$(arg grid_map_accumulation_weight)"/>
+    <param name="grid_map_decay"               value="$(arg grid_map_decay)"/>
+
+    <param name="vertex_shader"                value="$(find opengl_ros_lib)/shader/vs_depth_image_projection.glsl"/>
+    <param name="geometry_shader"              value="$(find opengl_ros_lib)/shader/gs_depth_image_projection.glsl"/>
+    <param name="fragment_shader"              value="$(find opengl_ros_lib)/shader/fs_depth_image_projection.glsl"/>
+    <param name="vertex_shader_scaling"        value="$(find opengl_ros_lib)/shader/vs_passthrough.glsl"/>
+    <param name="fragment_shader_scaling"      value="$(find opengl_ros_lib)/shader/fs_rgb_to_occupancy_grid.glsl"/>
+
+    <remap from="depth_in"                     to="/d435/depth/image_rect_raw"/>
+    <remap from="~map"                         to="/occupancy_grid2"/>
+  </node>
+</launch>

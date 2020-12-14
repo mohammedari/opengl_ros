@@ -1,6 +1,8 @@
 {
     "files.associations": {
-        "stdexcept": "cpp"
+        "stdexcept": "cpp",
+        "*.tcc": "cpp",
+        "thread": "cpp"
     },
     "python.autoComplete.extraPaths": [
         "/opt/ros/kinetic/lib/python2.7/dist-packages",
