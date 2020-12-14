@@ -1,8 +1,8 @@
 # OpenGL Simple GLSL Shader ROS Package
 This is a ROS package for providing simple implementation to utilize OpenGL shader (GLSL) code 
-with a GPU-powered machine under ROS environment, including 
-a simple class that retrieves OpenCV image as a texture, processing with GLSL shader codes, 
-and write it back to an OpenCV image.
+with a GPU-powered machine under ROS environment. The repository includes 
+a simple class that retrieves OpenCV image as a texture, processes it with GLSL shader codes, 
+and writes the result back to another OpenCV image.
 
 ![image](./doc/image.png)
 

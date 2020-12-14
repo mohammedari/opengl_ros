@@ -15,7 +15,7 @@ find_package(catkin REQUIRED COMPONENTS
   cv_bridge
   opengl_ros_lib
   tf
-  cgs_nav_msgs
+  dynamic_reconfigure
 )
 
 ## System dependencies are found with CMake's conventions
@@ -98,7 +98,9 @@ find_package(Eigen3 REQUIRED)
 #   cfg/DynReconf1.cfg
 #   cfg/DynReconf2.cfg
 # )
-
+generate_dynamic_reconfigure_options(
+  cfg/opengl_ros.cfg
+)
 ###################################
 ## catkin specific configuration ##
 ###################################
