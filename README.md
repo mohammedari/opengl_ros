@@ -9,17 +9,12 @@ and writes the result back to another OpenCV image.
 ## How to build?
 
 ### Setup ROS 
-See http://wiki.ros.org/Installation and also setup catkin tools with the command below.
-
-```
-sudo apt install catkin-tools
-```
+See http://wiki.ros.org/Installation and also setup ROS1.
 
 ### Setup catkin workspace
 ```
-mkdir -P ~/catkin/src
+mkdir -p ~/catkin/src
 cd ~/catkin
-catkin init
 ```
 ### Clone this repository
 ```
@@ -30,12 +25,14 @@ git clone <repository_path>
 ### Install prerequisite packages
 Install usb_cam node for example applications.
 ```
-sudo apt-get install ros-kinetic-usb-cam
+sudo apt-get install ros-${ROS_DISTRO}-usb-cam
 ```
 
 ### Build
 ```
-catkin build
+cd ~/catkin
+catkin_make
+source devel/setup.bash
 ```
 
 ## Run example nodes
